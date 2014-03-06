@@ -68,9 +68,6 @@ func (t *Trie) Keys() []string {
 
 func (t Trie) KeysWithPrefix(pre string) []string {
 	var keys []string
-	if len(pre) > t.size {
-		return keys
-	}
 
 	node := t.nodeAtPath(pre)
 	if node == nil {
