@@ -14,6 +14,26 @@ func TestTrieAdd(t *testing.T) {
 	}
 }
 
+func TestTrieAddFromFile(t *testing.T) {
+	path := "fixtures/test.txt"
+	expected := []string{"foo", "bar", "baz"}
+
+	trie := CreateTrie()
+	trie.AddKeysFromFile(path)
+	keys := trie.Keys()
+
+	kl := len(keys)
+	if kl != 3 {
+		t.Errorf("Expected 3 keys, got %d, keys were: %v", kl, trie.Keys())
+	}
+
+	for i, key := range keys {
+		if key != expected[i] {
+			t.Errorf("Expected %#v, got %#v", expected[i], key)
+		}
+	}
+}
+
 func TestTrieKeys(t *testing.T) {
 	trie := CreateTrie()
 	expected := []string{"bar", "foo"}

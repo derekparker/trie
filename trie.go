@@ -1,5 +1,13 @@
 package trie
 
+import (
+	"bufio"
+	"io"
+	"log"
+	"os"
+	"strings"
+)
+
 // Implementation of an R-Way Trie data structure.
 //
 // A Trie has a root Node which is the base of the tree.
@@ -60,6 +68,28 @@ func (t *Trie) AddKey(key string) int {
 	t.size++
 	runes := []rune(key)
 	return t.addrune(t.Root(), runes, 0)
+}
+
+func (t *Trie) AddKeysFromFile(path string) {
+	file, err := os.Open(path)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	reader := bufio.NewReader(file)
+
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			log.Fatal(err)
+		}
+
+		line = strings.TrimSuffix(line, "\n")
+		t.AddKey(line)
+	}
 }
 
 func (t *Trie) Keys() []string {
