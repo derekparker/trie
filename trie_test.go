@@ -49,42 +49,27 @@ func TestKeysWithPrefix(t *testing.T) {
 		trie.AddKey(key)
 	}
 
-	actual := trie.KeysWithPrefix("fo")
-	if len(actual) != len(expected) {
-		t.Errorf("Expected len(actual) to == %d.", len(expected))
+	tests := []struct {
+		pre      string
+		expected []string
+		length   int
+	}{
+		{"fo", expected, len(expected)},
+		{"foosbal", []string{"foosball"}, 1},
+		{"abc", []string{}, 0},
 	}
 
-	for i, key := range expected {
-		if actual[i] != key {
-			t.Errorf("Expected %v got: %v", key, actual[i])
+	for _, test := range tests {
+		actual := trie.KeysWithPrefix(test.pre)
+		if len(actual) != test.length {
+			t.Errorf("Expected len(actual) to == %d for pre %s", test.length, test.pre)
 		}
-	}
 
-	actual = trie.KeysWithPrefix("foosbal")
-	if len(actual) != 1 {
-		t.Errorf("Expected len(actual) to == %d.", 1)
-	}
-
-	for _, key := range actual {
-		if key != "foosball" {
-			t.Errorf("Expected %v got: %v", "foosball", key)
+		for i, key := range actual {
+			if key != test.expected[i] {
+				t.Errorf("Expected %v got: %v", test.expected[i], key)
+			}
 		}
-	}
-
-	actual = trie.KeysWithPrefix("footb")
-	if len(actual) != 1 {
-		t.Errorf("Expected len(actual) to == %d.", 1)
-	}
-
-	for _, key := range actual {
-		if key != "football" {
-			t.Errorf("Expected %v got: %v", "football", key)
-		}
-	}
-
-	actual = trie.KeysWithPrefix("abc")
-	if len(actual) != 0 {
-		t.Errorf("Expected len(actual) to == %d.", 0)
 	}
 
 	trie.KeysWithPrefix("fsfsdfasdf")
