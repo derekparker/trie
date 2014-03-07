@@ -155,10 +155,6 @@ func (t Trie) addrune(node *Node, runes []rune, i int) int {
 }
 
 func collect(node *Node, pre []rune, keys *[]string) {
-	if len(node.Children()) < 1 {
-		return
-	}
-
 	for k, v := range node.Children() {
 		if v.Val() > 0 {
 			*keys = append(*keys, string(pre))
