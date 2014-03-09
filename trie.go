@@ -16,6 +16,7 @@ import (
 
 type Node struct {
 	val      int
+	mask     uint64
 	children map[rune]*Node
 }
 
@@ -26,15 +27,16 @@ type Trie struct {
 
 const nul = 0x0
 
-func newNode(val int) *Node {
+func newNode(val int, m uint64) *Node {
 	return &Node{
 		val:      val,
+		mask:     m,
 		children: make(map[rune]*Node),
 	}
 }
 
-func (n *Node) NewChild(r rune, val int) *Node {
-	node := newNode(val)
+func (n *Node) NewChild(r rune, bitmask uint64, val int) *Node {
+	node := newNode(val, bitmask)
 	n.children[r] = node
 	return node
 }
@@ -48,9 +50,13 @@ func (n Node) Val() int {
 	return n.val
 }
 
+func (n Node) Mask() uint64 {
+	return n.mask
+}
+
 // Creates a new Trie with an initialized root Node.
 func CreateTrie() *Trie {
-	node := newNode(0)
+	node := newNode(0, 0)
 	t := &Trie{
 		root: node,
 		size: 0,
@@ -96,6 +102,16 @@ func (t *Trie) Keys() []string {
 	return t.KeysWithPrefix("")
 }
 
+func (t Trie) FuzzySearch(pre string) []string {
+	var (
+		keys []string
+		pm   []rune
+	)
+
+	fuzzycollect(t.Root(), pm, []rune(pre), &keys)
+	return keys
+}
+
 func (t Trie) KeysWithPrefix(pre string) []string {
 	var keys []string
 
@@ -138,7 +154,8 @@ func findNode(node *Node, runes []rune, d int) *Node {
 
 func (t Trie) addrune(node *Node, runes []rune, i int) int {
 	if len(runes) == 0 {
-		node.NewChild(nul, t.size)
+		var m uint64
+		node.NewChild(nul, m, t.size)
 		return i
 	}
 
@@ -146,12 +163,33 @@ func (t Trie) addrune(node *Node, runes []rune, i int) int {
 	c := node.Children()
 
 	n, ok := c[r]
+	bitmask := mask(runes)
 	if !ok {
-		n = node.NewChild(r, 0)
+		n = node.NewChild(r, bitmask, 0)
 	}
+	n.mask = bitmask
 
 	i++
 	return t.addrune(n, runes[1:], i)
+}
+
+func mask(rs []rune) uint64 {
+	var m uint64
+	i := uint64(1)
+	for _, r := range rs {
+		h := i << (uint64(r) - 97)
+		m |= h
+	}
+
+	return m
+}
+
+func matchesany(a, b uint64) bool {
+	if (a & b) > 0 {
+		return true
+	}
+
+	return false
 }
 
 func collect(node *Node, pre []rune, keys *[]string) {
@@ -163,5 +201,39 @@ func collect(node *Node, pre []rune, keys *[]string) {
 
 		npre := append(pre, k)
 		collect(v, npre, keys)
+	}
+}
+
+func fuzzycollect(node *Node, partialmatch, partial []rune, keys *[]string) {
+	for k, v := range node.Children() {
+		if v.Val() > 0 {
+			partialmatchlen := len(partialmatch)
+			if partialmatchlen > 1 || partialmatchlen == 0 && len(partial) > 0 && partial[0] == k {
+				*keys = append(*keys, string(partialmatch))
+				continue
+			}
+		}
+
+		partiallen := len(partial)
+		if partiallen > 0 {
+			match := matchesany(v.Mask(), mask(partial))
+			if match {
+				npartialmatch := append(partialmatch, k)
+				npartial := partial
+
+				if k == partial[0] {
+					if partiallen > 1 {
+						npartial = partial[1:]
+					} else {
+						npartial = partial[0:0]
+					}
+				}
+
+				fuzzycollect(v, npartialmatch, npartial, keys)
+			}
+		} else {
+			npartialmatch := append(partialmatch, k)
+			fuzzycollect(v, npartialmatch, partial, keys)
+		}
 	}
 }

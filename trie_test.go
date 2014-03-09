@@ -95,6 +95,37 @@ func TestKeysWithPrefix(t *testing.T) {
 	trie.KeysWithPrefix("fsfsdfasdf")
 }
 
+func TestFuzzySearch(t *testing.T) {
+	trie := CreateTrie()
+	setup := []string{
+		"foosball",
+		"football",
+		"america",
+		"a",
+		"frosty",
+		"afrza",
+	}
+	tests := []struct {
+		partial string
+		length  int
+	}{
+		{"fsb", 1},
+		{"fy", 1},
+		{"fz", 1},
+	}
+
+	for _, key := range setup {
+		trie.AddKey(key)
+	}
+
+	for _, test := range tests {
+		actual := trie.FuzzySearch(test.partial)
+		if len(actual) != test.length {
+			t.Errorf("Expected len(actual) to == %d, was %d for pre %s", 1, len(actual), test.partial)
+		}
+	}
+}
+
 func BenchmarkTieKeys(b *testing.B) {
 	trie := CreateTrie()
 	keys := []string{"bar", "foo", "baz", "bur", "zum", "burzum", "bark", "barcelona", "football", "foosball", "footlocker"}
@@ -142,5 +173,29 @@ func BenchmarkKeysWithPrefix(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = trie.KeysWithPrefix("fo")
+	}
+}
+
+func BenchmarkFuzzySearch(b *testing.B) {
+	trie := CreateTrie()
+	expected := []string{
+		"foosball",
+		"football",
+		"foreboding",
+		"forementioned",
+		"foretold",
+		"foreverandeverandeveranwdever",
+		"forbidden",
+		"fofnsupercrlifralilisticexpyaladocgous",
+		"foors",
+	}
+
+	for _, key := range expected {
+		trie.AddKey(key)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = trie.FuzzySearch("fs")
 	}
 }
