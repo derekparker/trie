@@ -206,12 +206,9 @@ func collect(node *Node, pre []rune, keys *[]string) {
 
 func fuzzycollect(node *Node, partialmatch, partial []rune, keys *[]string) {
 	for k, v := range node.Children() {
-		if v.Val() > 0 {
-			partialmatchlen := len(partialmatch)
-			if partialmatchlen > 1 || partialmatchlen == 0 && len(partial) > 0 && partial[0] == k {
-				*keys = append(*keys, string(partialmatch))
-				continue
-			}
+		if v.Val() > 0 && len(partial) == 0 {
+			*keys = append(*keys, string(partialmatch))
+			continue
 		}
 
 		partiallen := len(partial)

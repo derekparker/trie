@@ -101,6 +101,8 @@ func TestFuzzySearch(t *testing.T) {
 		"foosball",
 		"football",
 		"bmerica",
+		"ked",
+		"kedlock",
 		"frosty",
 		"bfrza",
 	}
@@ -112,6 +114,7 @@ func TestFuzzySearch(t *testing.T) {
 		{"footbal", 1},
 		{"fs", 2},
 		{"oos", 1},
+		{"kl", 1},
 		{"ft", 2},
 		{"fy", 1},
 		{"fz", 1},
