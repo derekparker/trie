@@ -167,7 +167,7 @@ func (t Trie) addrune(node *Node, runes []rune, i int) int {
 	if !ok {
 		n = node.NewChild(r, bitmask, 0)
 	}
-	n.mask = bitmask
+	n.mask |= bitmask
 
 	i++
 	return t.addrune(n, runes[1:], i)
@@ -216,7 +216,7 @@ func fuzzycollect(node *Node, partialmatch, partial []rune, keys *[]string) {
 
 		partiallen := len(partial)
 		if partiallen > 0 {
-			match := matchesany(v.Mask(), mask(partial))
+			match := matchesany(v.Mask(), mask(partial[0:1]))
 			if match {
 				npartialmatch := append(partialmatch, k)
 				npartial := partial

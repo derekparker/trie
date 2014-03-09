@@ -100,18 +100,22 @@ func TestFuzzySearch(t *testing.T) {
 	setup := []string{
 		"foosball",
 		"football",
-		"america",
-		"a",
+		"bmerica",
 		"frosty",
-		"afrza",
+		"bfrza",
 	}
 	tests := []struct {
 		partial string
 		length  int
 	}{
 		{"fsb", 1},
+		{"footbal", 1},
+		{"fs", 2},
+		{"oos", 1},
+		{"ft", 2},
 		{"fy", 1},
 		{"fz", 1},
+		{"a", 4},
 	}
 
 	for _, key := range setup {
@@ -120,8 +124,9 @@ func TestFuzzySearch(t *testing.T) {
 
 	for _, test := range tests {
 		actual := trie.FuzzySearch(test.partial)
+
 		if len(actual) != test.length {
-			t.Errorf("Expected len(actual) to == %d, was %d for pre %s", 1, len(actual), test.partial)
+			t.Errorf("Expected len(actual) to == %d, was %d for %s", test.length, len(actual), test.partial)
 		}
 	}
 }
