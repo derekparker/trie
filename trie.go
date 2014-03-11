@@ -112,7 +112,7 @@ func (t *Trie) AddKeysFromFile(path string) {
 
 // Returns all the keys currently stored in the trie.
 func (t *Trie) Keys() []string {
-	return t.KeysWithPrefix("")
+	return t.PrefixSearch("")
 }
 
 // Performs a fuzzy search against the keys in the trie.
@@ -127,7 +127,7 @@ func (t Trie) FuzzySearch(pre string) []string {
 }
 
 // Performs a prefix search against the keys in the trie.
-func (t Trie) KeysWithPrefix(pre string) []string {
+func (t Trie) PrefixSearch(pre string) []string {
 	var keys []string
 
 	node := t.nodeAtPath(pre)

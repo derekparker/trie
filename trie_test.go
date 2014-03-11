@@ -54,7 +54,7 @@ func TestTrieKeys(t *testing.T) {
 	}
 }
 
-func TestKeysWithPrefix(t *testing.T) {
+func TestPrefixSearch(t *testing.T) {
 	trie := CreateTrie()
 	expected := []string{"foosball", "football", "foreboding", "forementioned", "foretold", "foreverandeverandeverandever", "forbidden"}
 	defer func() {
@@ -80,7 +80,7 @@ func TestKeysWithPrefix(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		actual := trie.KeysWithPrefix(test.pre)
+		actual := trie.PrefixSearch(test.pre)
 		if len(actual) != test.length {
 			t.Errorf("Expected len(actual) to == %d for pre %s", test.length, test.pre)
 		}
@@ -92,7 +92,7 @@ func TestKeysWithPrefix(t *testing.T) {
 		}
 	}
 
-	trie.KeysWithPrefix("fsfsdfasdf")
+	trie.PrefixSearch("fsfsdfasdf")
 }
 
 func TestFuzzySearch(t *testing.T) {
@@ -150,13 +150,13 @@ func BenchmarkTieKeys(b *testing.B) {
 	}
 }
 
-func BenchmarkKeysWithPrefix(b *testing.B) {
+func BenchmarkPrefixSearch(b *testing.B) {
 	trie := CreateTrie()
 	trie.AddKeysFromFile("/usr/share/dict/words")
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = trie.KeysWithPrefix("fo")
+		_ = trie.PrefixSearch("fo")
 	}
 }
 
