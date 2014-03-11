@@ -113,6 +113,7 @@ func TestFuzzySearch(t *testing.T) {
 	}{
 		{"fsb", 1},
 		{"footbal", 1},
+		{"football", 1},
 		{"fs", 2},
 		{"oos", 1},
 		{"kl", 1},
@@ -151,33 +152,7 @@ func BenchmarkTieKeys(b *testing.B) {
 
 func BenchmarkKeysWithPrefix(b *testing.B) {
 	trie := CreateTrie()
-	expected := []string{
-		"foosball",
-		"football",
-		"foreboding",
-		"forementioned",
-		"foretold",
-		"foreverandeverandeverandever",
-		"forbidden",
-		"forsupercalifragilisticexpyaladocious",
-		"forsupercalifragilisticexpyaladocious",
-		"forsupercalifragilisticexpyaladocious/fors",
-		"forsupercalifragilisticexpyvlsdocious/fors",
-		"fofsupercrlifralilisticexpyaladocgous",
-		"foo/bar/baz/ber/her/mer/fur/a.out",
-		"foo/baz/baz/ber/her/mer/fur/a.out",
-		"foo/baz/bur/ber/her/mer/fur/a.out",
-		"foo/baz/bur/sher/her/mer/fur/a.out",
-		"foo/curr/bur/sher/her/mer/fur/a.out",
-		"foo/lurr/bur/sher/her/mer/fur/a.out",
-		"foo/turr/bur/sher/her/mer/fur/a.out",
-		"foors",
-	}
-
-	trie.AddKey("bar")
-	for _, key := range expected {
-		trie.AddKey(key)
-	}
+	trie.AddKeysFromFile("/usr/share/dict/words")
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -187,21 +162,7 @@ func BenchmarkKeysWithPrefix(b *testing.B) {
 
 func BenchmarkFuzzySearch(b *testing.B) {
 	trie := CreateTrie()
-	expected := []string{
-		"foosball",
-		"football",
-		"foreboding",
-		"forementioned",
-		"foretold",
-		"foreverandeverandeveranwdever",
-		"forbidden",
-		"fofnsupercrlifralilisticexpyaladocgous",
-		"foors",
-	}
-
-	for _, key := range expected {
-		trie.AddKey(key)
-	}
+	trie.AddKeysFromFile("/usr/share/dict/words")
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
