@@ -1,3 +1,11 @@
+/*
+Implementation of an R-Way Trie data structure.
+
+A Trie has a root Node which is the base of the tree.
+Each subsequent Node has a letter and children, which are
+nodes that have letter values associated with them.
+*/
+
 package trie
 
 import (
@@ -7,12 +15,6 @@ import (
 	"os"
 	"strings"
 )
-
-// Implementation of an R-Way Trie data structure.
-//
-// A Trie has a root Node which is the base of the tree.
-// Each subsequent Node has a letter and children, which are
-// nodes that have letter values associated with them.
 
 type Node struct {
 	val       int
@@ -34,6 +36,7 @@ func newNode(val int, m uint64) *Node {
 	}
 }
 
+// Creates and returns a pointer to a new child for the node.
 func (n *Node) NewChild(r rune, bitmask uint64, val int) *Node {
 	node := newNode(val, bitmask)
 	n.children[r] = node
@@ -46,6 +49,8 @@ func (n Node) Children() map[rune]*Node {
 	return n.children
 }
 
+// Returns all runes stores beneath this node.
+// This list does not contain duplicates.
 func (n Node) ChildVals() []rune {
 	return n.childvals
 }
@@ -54,6 +59,8 @@ func (n Node) Val() int {
 	return n.val
 }
 
+// Returns a uint64 representing the current
+// mask of this node.
 func (n Node) Mask() uint64 {
 	return n.mask
 }
@@ -79,6 +86,8 @@ func (t *Trie) AddKey(key string) int {
 	return t.addrune(t.Root(), runes, 0)
 }
 
+// Reads words from a file and adds them to the
+// trie. Expects words to be seperated by a newline.
 func (t *Trie) AddKeysFromFile(path string) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -101,10 +110,12 @@ func (t *Trie) AddKeysFromFile(path string) {
 	}
 }
 
+// Returns all the keys currently stored in the trie.
 func (t *Trie) Keys() []string {
 	return t.KeysWithPrefix("")
 }
 
+// Performs a fuzzy search against the keys in the trie.
 func (t Trie) FuzzySearch(pre string) []string {
 	var (
 		keys []string
@@ -115,6 +126,7 @@ func (t Trie) FuzzySearch(pre string) []string {
 	return keys
 }
 
+// Performs a prefix search against the keys in the trie.
 func (t Trie) KeysWithPrefix(pre string) []string {
 	var keys []string
 
