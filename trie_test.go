@@ -105,6 +105,7 @@ func TestFuzzySearch(t *testing.T) {
 		"kedlock",
 		"frosty",
 		"bfrza",
+		"foo/bar/baz.go",
 	}
 	tests := []struct {
 		partial string
@@ -117,8 +118,8 @@ func TestFuzzySearch(t *testing.T) {
 		{"kl", 1},
 		{"ft", 2},
 		{"fy", 1},
-		{"fz", 1},
-		{"a", 4},
+		{"fz", 2},
+		{"a", 5},
 	}
 
 	for _, key := range setup {
