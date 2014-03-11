@@ -26,8 +26,6 @@ type Trie struct {
 	size int
 }
 
-const nul = 0x0
-
 func newNode(val int, m uint64) *Node {
 	return &Node{
 		val:      val,
@@ -63,11 +61,10 @@ func (n Node) Mask() uint64 {
 // Creates a new Trie with an initialized root Node.
 func CreateTrie() *Trie {
 	node := newNode(0, 0)
-	t := &Trie{
+	return &Trie{
 		root: node,
 		size: 0,
 	}
-	return t
 }
 
 // Returns the root node for the Trie.
@@ -160,7 +157,7 @@ func findNode(node *Node, runes []rune, d int) *Node {
 
 func (t Trie) addrune(node *Node, runes []rune, i int) int {
 	if len(runes) == 0 {
-		node.NewChild(nul, 0, t.size)
+		node.NewChild(0, 0, t.size)
 		return i
 	}
 
