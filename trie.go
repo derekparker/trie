@@ -10,11 +10,9 @@ package trie
 
 import (
 	"bufio"
-	"io"
 	"log"
 	"os"
 	"sort"
-	"strings"
 )
 
 type Node struct {
@@ -95,19 +93,14 @@ func (t *Trie) AddKeysFromFile(path string) {
 		log.Fatal(err)
 	}
 
-	reader := bufio.NewReader(file)
+	reader := bufio.NewScanner(file)
 
-	for {
-		line, err := reader.ReadString('\n')
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			log.Fatal(err)
-		}
+	for reader.Scan() {
+		t.AddKey(reader.Text())
+	}
 
-		line = strings.TrimSuffix(line, "\n")
-		t.AddKey(line)
+	if reader.Err() != nil {
+		log.Fatal(err)
 	}
 }
 
