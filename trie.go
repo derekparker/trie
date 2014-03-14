@@ -184,22 +184,16 @@ func (t Trie) addrune(node *Node, runes []rune, i int) int {
 
 func maskruneslice(rs []rune) uint64 {
 	var m uint64
-	i := uint64(1)
 	for _, r := range rs {
-		h := i << (uint64(r) - 97)
-		m |= h
+		m |= maskrune(r)
 	}
 
 	return m
 }
 
 func maskrune(r rune) uint64 {
-	var m uint64
 	i := uint64(1)
-	h := i << (uint64(r) - 97)
-	m |= h
-
-	return m
+	return i << (uint64(r) - 97)
 }
 
 func collect(node *Node, pre []rune, keys *[]string) {
