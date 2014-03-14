@@ -7,7 +7,7 @@ import (
 func TestTrieAdd(t *testing.T) {
 	trie := CreateTrie()
 
-	i := trie.AddKey("foo")
+	i := trie.Add("foo")
 
 	if i != 3 {
 		t.Errorf("Expected 3, got: %d", i)
@@ -19,7 +19,7 @@ func TestTrieAddFromFile(t *testing.T) {
 	expected := []string{"foo", "bar", "baz"}
 
 	trie := CreateTrie()
-	trie.AddKeysFromFile(path)
+	trie.AddFromFile(path)
 	keys := trie.Keys()
 
 	kl := len(keys)
@@ -39,7 +39,7 @@ func TestTrieKeys(t *testing.T) {
 	expected := []string{"bar", "foo"}
 
 	for _, key := range expected {
-		trie.AddKey(key)
+		trie.Add(key)
 	}
 
 	kl := len(trie.Keys())
@@ -64,9 +64,9 @@ func TestPrefixSearch(t *testing.T) {
 		}
 	}()
 
-	trie.AddKey("bar")
+	trie.Add("bar")
 	for _, key := range expected {
-		trie.AddKey(key)
+		trie.Add(key)
 	}
 
 	tests := []struct {
@@ -124,7 +124,7 @@ func TestFuzzySearch(t *testing.T) {
 	}
 
 	for _, key := range setup {
-		trie.AddKey(key)
+		trie.Add(key)
 	}
 
 	for _, test := range tests {
@@ -141,7 +141,7 @@ func BenchmarkTieKeys(b *testing.B) {
 	keys := []string{"bar", "foo", "baz", "bur", "zum", "burzum", "bark", "barcelona", "football", "foosball", "footlocker"}
 
 	for _, key := range keys {
-		trie.AddKey(key)
+		trie.Add(key)
 	}
 
 	b.ResetTimer()
@@ -152,7 +152,7 @@ func BenchmarkTieKeys(b *testing.B) {
 
 func BenchmarkPrefixSearch(b *testing.B) {
 	trie := CreateTrie()
-	trie.AddKeysFromFile("/usr/share/dict/words")
+	trie.AddFromFile("/usr/share/dict/words")
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -162,7 +162,7 @@ func BenchmarkPrefixSearch(b *testing.B) {
 
 func BenchmarkFuzzySearch(b *testing.B) {
 	trie := CreateTrie()
-	trie.AddKeysFromFile("/usr/share/dict/words")
+	trie.AddFromFile("/usr/share/dict/words")
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

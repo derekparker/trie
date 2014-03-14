@@ -79,7 +79,7 @@ func (t *Trie) Root() *Node {
 }
 
 // Adds the key to the Trie.
-func (t *Trie) AddKey(key string) int {
+func (t *Trie) Add(key string) int {
 	t.size++
 	runes := []rune(key)
 	return t.addrune(t.Root(), runes, 0)
@@ -87,7 +87,7 @@ func (t *Trie) AddKey(key string) int {
 
 // Reads words from a file and adds them to the
 // trie. Expects words to be seperated by a newline.
-func (t *Trie) AddKeysFromFile(path string) {
+func (t *Trie) AddFromFile(path string) {
 	file, err := os.Open(path)
 	if err != nil {
 		log.Fatal(err)
@@ -96,7 +96,7 @@ func (t *Trie) AddKeysFromFile(path string) {
 	reader := bufio.NewScanner(file)
 
 	for reader.Scan() {
-		t.AddKey(reader.Text())
+		t.Add(reader.Text())
 	}
 
 	if reader.Err() != nil {
