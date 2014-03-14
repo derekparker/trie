@@ -34,6 +34,40 @@ func TestTrieAddFromFile(t *testing.T) {
 	}
 }
 
+func TestRemove(t *testing.T) {
+	trie := CreateTrie()
+	initial := []string{"football", "foostar", "foosball"}
+
+	for _, key := range initial {
+		trie.Add(key)
+	}
+
+	trie.Remove("foosball")
+	keys := trie.Keys()
+
+	if len(keys) != 2 {
+		t.Errorf("Expected 2 keys got %d", len(keys))
+	}
+
+	for _, k := range keys {
+		if k != "football" && k != "foostar" {
+			t.Errorf("key was: %s", k)
+		}
+	}
+
+	keys = trie.FuzzySearch("foo")
+
+	if len(keys) != 2 {
+		t.Errorf("Expected 2 keys got %d", len(keys))
+	}
+
+	for _, k := range keys {
+		if k != "football" && k != "foostar" {
+			t.Errorf("Expected football got: %#v", k)
+		}
+	}
+}
+
 func TestTrieKeys(t *testing.T) {
 	trie := CreateTrie()
 	expected := []string{"bar", "foo"}

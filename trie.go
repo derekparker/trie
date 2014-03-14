@@ -16,10 +16,11 @@ import (
 )
 
 type Node struct {
-	val       int
-	mask      uint64
-	children  map[rune]*Node
-	childvals []rune
+	val      rune
+	term     bool
+	mask     uint64
+	parent   *Node
+	children map[rune]*Node
 }
 
 type Trie struct {
@@ -27,20 +28,44 @@ type Trie struct {
 	size int
 }
 
-func newNode(val int, m uint64) *Node {
+const nul = 0x0
+
+func newNode(parent *Node, val rune, m uint64, term bool) *Node {
 	return &Node{
 		val:      val,
 		mask:     m,
+		term:     term,
+		parent:   parent,
 		children: make(map[rune]*Node),
 	}
 }
 
 // Creates and returns a pointer to a new child for the node.
-func (n *Node) NewChild(r rune, bitmask uint64, val int) *Node {
-	node := newNode(val, bitmask)
+func (n *Node) NewChild(parent *Node, r rune, bitmask uint64, val rune, term bool) *Node {
+	node := newNode(parent, val, bitmask, term)
 	n.children[r] = node
-	n.childvals = append(n.childvals, r)
 	return node
+}
+
+func (n *Node) RemoveChild(r rune) {
+	delete(n.children, r)
+
+	n.recalculateMask()
+	for parent := n.Parent(); parent != nil; parent = parent.Parent() {
+		parent.recalculateMask()
+	}
+}
+
+func (n *Node) recalculateMask() {
+	n.mask = maskrune(n.Val())
+	for k, c := range n.Children() {
+		n.mask |= (maskrune(k) | c.Mask())
+	}
+}
+
+// Returns the parent of this node.
+func (n Node) Parent() *Node {
+	return n.parent
 }
 
 // Returns the children of this node.
@@ -48,13 +73,7 @@ func (n Node) Children() map[rune]*Node {
 	return n.children
 }
 
-// Returns all runes stores beneath this node.
-// This list does not contain duplicates.
-func (n Node) ChildVals() []rune {
-	return n.childvals
-}
-
-func (n Node) Val() int {
+func (n Node) Val() rune {
 	return n.val
 }
 
@@ -66,7 +85,7 @@ func (n Node) Mask() uint64 {
 
 // Creates a new Trie with an initialized root Node.
 func CreateTrie() *Trie {
-	node := newNode(0, 0)
+	node := newNode(nil, 0, 0, false)
 	return &Trie{
 		root: node,
 		size: 0,
@@ -83,6 +102,26 @@ func (t *Trie) Add(key string) int {
 	t.size++
 	runes := []rune(key)
 	return t.addrune(t.Root(), runes, 0)
+}
+
+// Removes a key from the trie.
+func (t *Trie) Remove(key string) {
+	var (
+		i    int
+		rs   = []rune(key)
+		node = t.nodeAtPath(key)
+	)
+
+	t.size--
+	for n := node.Parent(); n != nil; n = n.Parent() {
+		i++
+		if len(n.Children()) > 1 {
+			idx := len(rs) - i
+			r := rs[idx]
+			n.RemoveChild(r)
+			break
+		}
+	}
 }
 
 // Reads words from a file and adds them to the
@@ -113,7 +152,7 @@ func (t *Trie) Keys() []string {
 func (t Trie) FuzzySearch(pre string) []string {
 	var (
 		keys []string
-		pm   = make([]rune, 35)
+		pm   []rune
 	)
 
 	fuzzycollect(t.Root(), pm, []rune(pre), &keys)
@@ -164,7 +203,7 @@ func findNode(node *Node, runes []rune, d int) *Node {
 
 func (t Trie) addrune(node *Node, runes []rune, i int) int {
 	if len(runes) == 0 {
-		node.NewChild(0, 0, t.size)
+		node.NewChild(node, 0, 0, nul, true)
 		return i
 	}
 
@@ -174,7 +213,7 @@ func (t Trie) addrune(node *Node, runes []rune, i int) int {
 	n, ok := c[r]
 	bitmask := maskruneslice(runes)
 	if !ok {
-		n = node.NewChild(r, bitmask, 0)
+		n = node.NewChild(node, r, bitmask, r, false)
 	}
 	n.mask |= bitmask
 
@@ -198,9 +237,8 @@ func maskrune(r rune) uint64 {
 
 func collect(node *Node, pre []rune, keys *[]string) {
 	children := node.Children()
-	for _, r := range node.ChildVals() {
-		n := children[r]
-		if n.Val() > 0 {
+	for r, n := range children {
+		if n.term {
 			*keys = append(*keys, string(pre))
 			continue
 		}
@@ -220,9 +258,7 @@ func fuzzycollect(node *Node, partialmatch, partial []rune, keys *[]string) {
 
 	m := maskruneslice(partial)
 	children := node.Children()
-	for _, v := range node.ChildVals() {
-		n := children[v]
-
+	for v, n := range children {
 		xor := n.Mask() ^ m
 		if (xor & m) != 0 {
 			continue
