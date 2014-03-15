@@ -116,8 +116,7 @@ func (t *Trie) Remove(key string) {
 	for n := node.Parent(); n != nil; n = n.Parent() {
 		i++
 		if len(n.Children()) > 1 {
-			idx := len(rs) - i
-			r := rs[idx]
+			r := rs[len(rs)-i]
 			n.RemoveChild(r)
 			break
 		}
