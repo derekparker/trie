@@ -104,7 +104,8 @@ func (t *Trie) Add(key string) int {
 	return t.addrune(t.Root(), runes, 0)
 }
 
-// Removes a key from the trie.
+// Removes a key from the trie, ensuring that
+// all bitmasks up to root are appropriately recalculated.
 func (t *Trie) Remove(key string) {
 	var (
 		i    int
