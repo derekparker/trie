@@ -94,7 +94,9 @@ func (t *Trie) Root() *Node {
 	return t.root
 }
 
-// Adds the key to the Trie.
+// Adds the key to the Trie, including meta data. Meta data
+// is stored as `interface{}` and must be type cast by
+// the caller.
 func (t *Trie) Add(key string, meta interface{}) *Node {
 	t.size++
 	runes := []rune(key)
