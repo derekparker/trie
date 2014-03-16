@@ -10,7 +10,6 @@ import (
 	"bufio"
 	"log"
 	"os"
-	"sort"
 )
 
 type Node struct {
@@ -154,7 +153,6 @@ func (t Trie) FuzzySearch(pre string) []string {
 	)
 
 	fuzzycollect(t.Root(), pm, []rune(pre), &keys)
-	sort.Strings(keys)
 	return keys
 }
 
