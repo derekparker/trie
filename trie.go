@@ -9,6 +9,7 @@ package trie
 type Node struct {
 	val      rune
 	term     bool
+	meta     interface{}
 	mask     uint64
 	parent   *Node
 	children map[rune]*Node
@@ -59,6 +60,11 @@ func (n Node) Parent() *Node {
 	return n.parent
 }
 
+// Returns the meta information of this node.
+func (n Node) Meta() interface{} {
+	return n.meta
+}
+
 // Returns the children of this node.
 func (n Node) Children() map[rune]*Node {
 	return n.children
@@ -89,10 +95,12 @@ func (t *Trie) Root() *Node {
 }
 
 // Adds the key to the Trie.
-func (t *Trie) Add(key string) int {
+func (t *Trie) Add(key string, meta interface{}) *Node {
 	t.size++
 	runes := []rune(key)
-	return t.addrune(t.Root(), runes, 0)
+	node := t.addrune(t.Root(), runes, 0)
+	node.meta = meta
+	return node
 }
 
 // Removes a key from the trie, ensuring that
@@ -172,10 +180,9 @@ func findNode(node *Node, runes []rune, d int) *Node {
 	return findNode(n, runes, d)
 }
 
-func (t Trie) addrune(node *Node, runes []rune, i int) int {
+func (t Trie) addrune(node *Node, runes []rune, i int) *Node {
 	if len(runes) == 0 {
-		node.NewChild(0, 0, nul, true)
-		return i
+		return node.NewChild(0, 0, nul, true)
 	}
 
 	r := runes[0]

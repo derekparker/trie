@@ -16,7 +16,7 @@ func addFromFile(t *Trie, path string) {
 	reader := bufio.NewScanner(file)
 
 	for reader.Scan() {
-		t.Add(reader.Text())
+		t.Add(reader.Text(), nil)
 	}
 
 	if reader.Err() != nil {
@@ -27,10 +27,10 @@ func addFromFile(t *Trie, path string) {
 func TestTrieAdd(t *testing.T) {
 	trie := CreateTrie()
 
-	i := trie.Add("foo")
+	n := trie.Add("foo", 1)
 
-	if i != 3 {
-		t.Errorf("Expected 3, got: %d", i)
+	if n.Meta().(int) != 1 {
+		t.Errorf("Expected 1, got: %d", n.Meta().(int))
 	}
 }
 
@@ -39,7 +39,7 @@ func TestRemove(t *testing.T) {
 	initial := []string{"football", "foostar", "foosball"}
 
 	for _, key := range initial {
-		trie.Add(key)
+		trie.Add(key, nil)
 	}
 
 	trie.Remove("foosball")
@@ -73,7 +73,7 @@ func TestTrieKeys(t *testing.T) {
 	expected := []string{"bar", "foo"}
 
 	for _, key := range expected {
-		trie.Add(key)
+		trie.Add(key, nil)
 	}
 
 	kl := len(trie.Keys())
@@ -98,9 +98,9 @@ func TestPrefixSearch(t *testing.T) {
 		}
 	}()
 
-	trie.Add("bar")
+	trie.Add("bar", nil)
 	for _, key := range expected {
-		trie.Add(key)
+		trie.Add(key, nil)
 	}
 
 	tests := []struct {
@@ -158,7 +158,7 @@ func TestFuzzySearch(t *testing.T) {
 	}
 
 	for _, key := range setup {
-		trie.Add(key)
+		trie.Add(key, nil)
 	}
 
 	for _, test := range tests {
@@ -175,7 +175,7 @@ func BenchmarkTieKeys(b *testing.B) {
 	keys := []string{"bar", "foo", "baz", "bur", "zum", "burzum", "bark", "barcelona", "football", "foosball", "footlocker"}
 
 	for _, key := range keys {
-		trie.Add(key)
+		trie.Add(key, nil)
 	}
 
 	b.ResetTimer()
