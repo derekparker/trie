@@ -38,8 +38,8 @@ func newNode(parent *Node, val rune, m uint64, term bool) *Node {
 }
 
 // Creates and returns a pointer to a new child for the node.
-func (n *Node) NewChild(parent *Node, r rune, bitmask uint64, val rune, term bool) *Node {
-	node := newNode(parent, val, bitmask, term)
+func (n *Node) NewChild(r rune, bitmask uint64, val rune, term bool) *Node {
+	node := newNode(n, val, bitmask, term)
 	n.children[r] = node
 	return node
 }
@@ -199,7 +199,7 @@ func findNode(node *Node, runes []rune, d int) *Node {
 
 func (t Trie) addrune(node *Node, runes []rune, i int) int {
 	if len(runes) == 0 {
-		node.NewChild(node, 0, 0, nul, true)
+		node.NewChild(0, 0, nul, true)
 		return i
 	}
 
@@ -209,7 +209,7 @@ func (t Trie) addrune(node *Node, runes []rune, i int) int {
 	n, ok := c[r]
 	bitmask := maskruneslice(runes)
 	if !ok {
-		n = node.NewChild(node, r, bitmask, r, false)
+		n = node.NewChild(r, bitmask, r, false)
 	}
 	n.mask |= bitmask
 
