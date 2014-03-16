@@ -34,6 +34,20 @@ func TestTrieAdd(t *testing.T) {
 	}
 }
 
+func TestTrieFind(t *testing.T) {
+	trie := CreateTrie()
+	trie.Add("foo", 1)
+
+	n, err := trie.Find("foo")
+	if err != nil {
+		t.Fatal("Could not find node")
+	}
+
+	if n.Meta().(int) != 1 {
+		t.Errorf("Expected 1, got: %d", n.Meta().(int))
+	}
+}
+
 func TestRemove(t *testing.T) {
 	trie := CreateTrie()
 	initial := []string{"football", "foostar", "foosball"}

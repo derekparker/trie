@@ -6,6 +6,10 @@
 
 package trie
 
+import (
+	"fmt"
+)
+
 type Node struct {
 	val      rune
 	term     bool
@@ -105,6 +109,20 @@ func (t *Trie) Add(key string, meta interface{}) *Node {
 	return node
 }
 
+// Finds and returns meta data associated
+// with `key`.
+func (t *Trie) Find(key string) (*Node, error) {
+	node := t.nodeAtPath(key)
+	node = node.Children()[nul]
+
+	if node == nil || !node.term {
+		err := fmt.Errorf("could not find key in trie")
+		return nil, err
+	}
+
+	return node, nil
+}
+
 // Removes a key from the trie, ensuring that
 // all bitmasks up to root are appropriately recalculated.
 func (t *Trie) Remove(key string) {
@@ -156,10 +174,10 @@ func (t Trie) PrefixSearch(pre string) []string {
 
 func (t Trie) nodeAtPath(pre string) *Node {
 	runes := []rune(pre)
-	return findNode(t.Root(), runes, 0)
+	return findNode(t.Root(), runes)
 }
 
-func findNode(node *Node, runes []rune, d int) *Node {
+func findNode(node *Node, runes []rune) *Node {
 	if node == nil {
 		return nil
 	}
@@ -168,18 +186,19 @@ func findNode(node *Node, runes []rune, d int) *Node {
 		return node
 	}
 
-	upper := len(runes)
-	if d == upper {
-		return node
-	}
-
-	n, ok := node.Children()[runes[d]]
+	n, ok := node.Children()[runes[0]]
 	if !ok {
 		return nil
 	}
 
-	d++
-	return findNode(n, runes, d)
+	var nrunes []rune
+	if len(runes) > 1 {
+		nrunes = runes[1:]
+	} else {
+		nrunes = runes[0:0]
+	}
+
+	return findNode(n, nrunes)
 }
 
 func (t Trie) addrune(node *Node, runes []rune, i int) *Node {
