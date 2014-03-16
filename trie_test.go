@@ -1,8 +1,28 @@
 package trie
 
 import (
+	"bufio"
+	"log"
+	"os"
 	"testing"
 )
+
+func addFromFile(t *Trie, path string) {
+	file, err := os.Open(path)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	reader := bufio.NewScanner(file)
+
+	for reader.Scan() {
+		t.Add(reader.Text())
+	}
+
+	if reader.Err() != nil {
+		log.Fatal(err)
+	}
+}
 
 func TestTrieAdd(t *testing.T) {
 	trie := CreateTrie()
@@ -11,26 +31,6 @@ func TestTrieAdd(t *testing.T) {
 
 	if i != 3 {
 		t.Errorf("Expected 3, got: %d", i)
-	}
-}
-
-func TestTrieAddFromFile(t *testing.T) {
-	path := "fixtures/test.txt"
-	expected := []string{"foo", "bar", "baz"}
-
-	trie := CreateTrie()
-	trie.AddFromFile(path)
-	keys := trie.Keys()
-
-	kl := len(keys)
-	if kl != 3 {
-		t.Errorf("Expected 3 keys, got %d, keys were: %v", kl, trie.Keys())
-	}
-
-	for i, key := range keys {
-		if key != expected[i] {
-			t.Errorf("Expected %#v, got %#v", expected[i], key)
-		}
 	}
 }
 
@@ -186,7 +186,7 @@ func BenchmarkTieKeys(b *testing.B) {
 
 func BenchmarkPrefixSearch(b *testing.B) {
 	trie := CreateTrie()
-	trie.AddFromFile("/usr/share/dict/words")
+	addFromFile(trie, "/usr/share/dict/words")
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -196,7 +196,7 @@ func BenchmarkPrefixSearch(b *testing.B) {
 
 func BenchmarkFuzzySearch(b *testing.B) {
 	trie := CreateTrie()
-	trie.AddFromFile("/usr/share/dict/words")
+	addFromFile(trie, "/usr/share/dict/words")
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

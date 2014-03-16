@@ -6,12 +6,6 @@
 
 package trie
 
-import (
-	"bufio"
-	"log"
-	"os"
-)
-
 type Node struct {
 	val      rune
 	term     bool
@@ -118,25 +112,6 @@ func (t *Trie) Remove(key string) {
 			n.RemoveChild(r)
 			break
 		}
-	}
-}
-
-// Reads words from a file and adds them to the
-// trie. Expects words to be seperated by a newline.
-func (t *Trie) AddFromFile(path string) {
-	file, err := os.Open(path)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	reader := bufio.NewScanner(file)
-
-	for reader.Scan() {
-		t.Add(reader.Text())
-	}
-
-	if reader.Err() != nil {
-		log.Fatal(err)
 	}
 }
 
