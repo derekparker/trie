@@ -116,7 +116,7 @@ func (t *Trie) Find(key string) (*Node, error) {
 	node = node.Children()[nul]
 
 	if node == nil || !node.term {
-		err := fmt.Errorf("could not find key in trie")
+		err := fmt.Errorf("could not find key: %s in trie", key)
 		return nil, err
 	}
 
