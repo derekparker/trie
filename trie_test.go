@@ -153,7 +153,7 @@ func TestFuzzySearch(t *testing.T) {
 		"kedlock",
 		"frosty",
 		"bfrza",
-		"foo/bar/baz.go",
+		"foo/bart/baz.go",
 	}
 	tests := []struct {
 		partial string
@@ -165,7 +165,7 @@ func TestFuzzySearch(t *testing.T) {
 		{"fs", 2},
 		{"oos", 1},
 		{"kl", 1},
-		{"ft", 2},
+		{"ft", 3},
 		{"fy", 1},
 		{"fz", 2},
 		{"a", 5},
@@ -182,6 +182,34 @@ func TestFuzzySearch(t *testing.T) {
 			t.Errorf("Expected len(actual) to == %d, was %d for %s", test.length, len(actual), test.partial)
 		}
 	}
+}
+
+func TestFuzzySearchSorting(t *testing.T) {
+	trie := NewTrie()
+	setup := []string{
+		"foosball",
+		"football",
+		"bmerica",
+		"ked",
+		"kedlock",
+		"frosty",
+		"bfrza",
+		"foo/bart/baz.go",
+	}
+
+	for _, key := range setup {
+		trie.Add(key, nil)
+	}
+
+	actual := trie.FuzzySearch("fz")
+	expected := []string{"bfrza", "foo/bart/baz.go"}
+
+	for i, v := range expected {
+		if actual[i] != v {
+			t.Errorf("Expected %s got %s", v, actual[i])
+		}
+	}
+
 }
 
 func BenchmarkTieKeys(b *testing.B) {

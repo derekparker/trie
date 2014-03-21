@@ -8,6 +8,7 @@ package trie
 
 import (
 	"fmt"
+	"sort"
 )
 
 type Node struct {
@@ -23,6 +24,12 @@ type Trie struct {
 	root *Node
 	size int
 }
+
+type ByKeys []string
+
+func (a ByKeys) Len() int           { return len(a) }
+func (a ByKeys) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ByKeys) Less(i, j int) bool { return len(a[i]) < len(a[j]) }
 
 const nul = 0x0
 
@@ -156,6 +163,8 @@ func (t Trie) FuzzySearch(pre string) []string {
 	)
 
 	fuzzycollect(t.Root(), pm, []rune(pre), &keys)
+	sort.Sort(ByKeys(keys))
+
 	return keys
 }
 
