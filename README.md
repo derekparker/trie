@@ -21,7 +21,7 @@ t.Add("foobar", 1)
 Find a key with:
 
 ```Go
-meta, err := t.Find("foobar")
+meta, ok := t.Find("foobar")
 // use meta with meta.(type)
 ```
 
