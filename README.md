@@ -12,7 +12,10 @@ t := trie.NewTrie()
 Add Keys with:
 
 ```Go
-t.Add("foobar")
+// Add can take in meta information which can be stored with the key.
+// i.e. you could store any information you would like to associate with
+// this particular key.
+t.Add("foobar", nil)
 ```
 
 Remove Keys with:
