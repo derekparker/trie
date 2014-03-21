@@ -18,7 +18,15 @@ Add Keys with:
 t.Add("foobar", 1)
 ```
 
+Find a key with:
+
+```Go
+meta, err := t.Find("foobar")
+// use meta with meta.(type)
+```
+
 Remove Keys with:
+
 ```Go
 t.Remove("foobar")
 ```
