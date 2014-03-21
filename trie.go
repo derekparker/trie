@@ -3,7 +3,6 @@
 // A Trie has a root Node which is the base of the tree.
 // Each subsequent Node has a letter and children, which are
 // nodes that have letter values associated with them.
-
 package trie
 
 import (
