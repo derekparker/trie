@@ -104,7 +104,17 @@ func TestTrieKeys(t *testing.T) {
 
 func TestPrefixSearch(t *testing.T) {
 	trie := NewTrie()
-	expected := []string{"foosball", "football", "foreboding", "forementioned", "foretold", "foreverandeverandeverandever", "forbidden"}
+	expected := []string{
+		"foo",
+		"foosball",
+		"football",
+		"foreboding",
+		"forementioned",
+		"foretold",
+		"foreverandeverandeverandever",
+		"forbidden",
+	}
+
 	defer func() {
 		r := recover()
 		if r != nil {
