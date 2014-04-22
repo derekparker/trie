@@ -11,12 +11,13 @@ import (
 )
 
 type Node struct {
-	val      rune
-	term     bool
-	meta     interface{}
-	mask     uint64
-	parent   *Node
-	children map[rune]*Node
+	val       rune
+	term      bool
+	meta      interface{}
+	mask      uint64
+	parent    *Node
+	children  [256]*Node
+	childvals []rune
 }
 
 type Trie struct {
@@ -34,11 +35,10 @@ const nul = 0x0
 
 func newNode(parent *Node, val rune, m uint64, term bool) *Node {
 	return &Node{
-		val:      val,
-		mask:     m,
-		term:     term,
-		parent:   parent,
-		children: make(map[rune]*Node),
+		val:    val,
+		mask:   m,
+		term:   term,
+		parent: parent,
 	}
 }
 
@@ -46,11 +46,12 @@ func newNode(parent *Node, val rune, m uint64, term bool) *Node {
 func (n *Node) NewChild(r rune, bitmask uint64, val rune, term bool) *Node {
 	node := newNode(n, val, bitmask, term)
 	n.children[r] = node
+	n.childvals = append(n.childvals, r)
 	return node
 }
 
 func (n *Node) RemoveChild(r rune) {
-	delete(n.children, r)
+	n.children[r] = nil
 
 	n.recalculateMask()
 	for parent := n.Parent(); parent != nil; parent = parent.Parent() {
@@ -61,7 +62,11 @@ func (n *Node) RemoveChild(r rune) {
 func (n *Node) recalculateMask() {
 	n.mask = maskrune(n.Val())
 	for k, c := range n.Children() {
-		n.mask |= (maskrune(k) | c.Mask())
+		if c == nil {
+			continue
+		}
+
+		n.mask |= (maskrune(rune(k)) | c.Mask())
 	}
 }
 
@@ -76,7 +81,7 @@ func (n Node) Meta() interface{} {
 }
 
 // Returns the children of this node.
-func (n Node) Children() map[rune]*Node {
+func (n Node) Children() [256]*Node {
 	return n.children
 }
 
@@ -194,8 +199,8 @@ func findNode(node *Node, runes []rune) *Node {
 		return node
 	}
 
-	n, ok := node.Children()[runes[0]]
-	if !ok {
+	n := node.Children()[runes[0]]
+	if n == nil {
 		return nil
 	}
 
@@ -217,9 +222,9 @@ func (t Trie) addrune(node *Node, runes []rune, i int) *Node {
 	r := runes[0]
 	c := node.Children()
 
-	n, ok := c[r]
+	n := c[r]
 	bitmask := maskruneslice(runes)
-	if !ok {
+	if n == nil {
 		n = node.NewChild(r, bitmask, r, false)
 	}
 	n.mask |= bitmask
@@ -244,14 +249,19 @@ func maskrune(r rune) uint64 {
 
 func collect(node *Node, pre []rune, keys *[]string) {
 	children := node.Children()
-	for r, n := range children {
-		if n.term {
+	for _, n := range node.childvals {
+		cnode := children[n]
+		if cnode == nil {
+			continue
+		}
+
+		if cnode.term {
 			*keys = append(*keys, string(pre))
 			continue
 		}
 
-		npre := append(pre, r)
-		collect(n, npre, keys)
+		npre := append(pre, n)
+		collect(cnode, npre, keys)
 	}
 }
 
@@ -265,14 +275,16 @@ func fuzzycollect(node *Node, partialmatch, partial []rune, keys *[]string) {
 
 	m := maskruneslice(partial)
 	children := node.Children()
-	for v, n := range children {
-		xor := n.Mask() ^ m
+	for _, n := range node.childvals {
+		cnode := children[n]
+
+		xor := cnode.Mask() ^ m
 		if (xor & m) != 0 {
 			continue
 		}
 
 		npartial := partial
-		if v == partial[0] {
+		if n == partial[0] {
 			if partiallen > 1 {
 				npartial = partial[1:]
 			} else {
@@ -280,6 +292,6 @@ func fuzzycollect(node *Node, partialmatch, partial []rune, keys *[]string) {
 			}
 		}
 
-		fuzzycollect(n, append(partialmatch, v), npartial, keys)
+		fuzzycollect(cnode, append(partialmatch, n), npartial, keys)
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"log"
 	"os"
+	"sort"
 	"testing"
 )
 
@@ -139,6 +140,8 @@ func TestPrefixSearch(t *testing.T) {
 
 	for _, test := range tests {
 		actual := trie.PrefixSearch(test.pre)
+		sort.Strings(test.expected)
+		sort.Strings(actual)
 		if len(actual) != test.length {
 			t.Errorf("Expected len(actual) to == %d for pre %s", test.length, test.pre)
 		}
