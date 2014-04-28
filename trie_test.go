@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"log"
 	"os"
+	"sort"
 	"testing"
 )
 
@@ -95,7 +96,10 @@ func TestTrieKeys(t *testing.T) {
 		t.Errorf("Expected 2 keys, got %d, keys were: %v", kl, trie.Keys())
 	}
 
-	for i, key := range trie.Keys() {
+	keys := trie.Keys()
+
+	sort.Strings(keys)
+	for i, key := range keys {
 		if key != expected[i] {
 			t.Errorf("Expected %#v, got %#v", expected[i], key)
 		}
@@ -139,6 +143,8 @@ func TestPrefixSearch(t *testing.T) {
 
 	for _, test := range tests {
 		actual := trie.PrefixSearch(test.pre)
+		sort.Strings(actual)
+		sort.Strings(test.expected)
 		if len(actual) != test.length {
 			t.Errorf("Expected len(actual) to == %d for pre %s", test.length, test.pre)
 		}
