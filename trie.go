@@ -32,64 +32,6 @@ func (a ByKeys) Less(i, j int) bool { return len(a[i]) < len(a[j]) }
 
 const nul = 0x0
 
-func newNode(parent *Node, val rune, m uint64, term bool) *Node {
-	return &Node{
-		val:      val,
-		mask:     m,
-		term:     term,
-		parent:   parent,
-		children: make(map[rune]*Node),
-	}
-}
-
-// Creates and returns a pointer to a new child for the node.
-func (n *Node) NewChild(r rune, bitmask uint64, val rune, term bool) *Node {
-	node := newNode(n, val, bitmask, term)
-	n.children[r] = node
-	return node
-}
-
-func (n *Node) RemoveChild(r rune) {
-	delete(n.children, r)
-
-	n.recalculateMask()
-	for parent := n.Parent(); parent != nil; parent = parent.Parent() {
-		parent.recalculateMask()
-	}
-}
-
-func (n *Node) recalculateMask() {
-	n.mask = maskrune(n.Val())
-	for k, c := range n.Children() {
-		n.mask |= (maskrune(k) | c.Mask())
-	}
-}
-
-// Returns the parent of this node.
-func (n Node) Parent() *Node {
-	return n.parent
-}
-
-// Returns the meta information of this node.
-func (n Node) Meta() interface{} {
-	return n.meta
-}
-
-// Returns the children of this node.
-func (n Node) Children() map[rune]*Node {
-	return n.children
-}
-
-func (n Node) Val() rune {
-	return n.val
-}
-
-// Returns a uint64 representing the current
-// mask of this node.
-func (n Node) Mask() uint64 {
-	return n.mask
-}
-
 // Creates a new Trie with an initialized root Node.
 func New() *Trie {
 	node := newNode(nil, 0, 0, false)
@@ -185,6 +127,83 @@ func (t Trie) nodeAtPath(pre string) *Node {
 	return findNode(t.Root(), runes)
 }
 
+func (t Trie) addrune(node *Node, runes []rune, i int) *Node {
+	if len(runes) == 0 {
+		return node.NewChild(0, 0, nul, true)
+	}
+
+	r := runes[0]
+	c := node.Children()
+
+	n, ok := c[r]
+	bitmask := maskruneslice(runes)
+	if !ok {
+		n = node.NewChild(r, bitmask, r, false)
+	}
+	n.mask |= bitmask
+
+	i++
+	return t.addrune(n, runes[1:], i)
+}
+
+func newNode(parent *Node, val rune, m uint64, term bool) *Node {
+	return &Node{
+		val:      val,
+		mask:     m,
+		term:     term,
+		parent:   parent,
+		children: make(map[rune]*Node),
+	}
+}
+
+// Creates and returns a pointer to a new child for the node.
+func (n *Node) NewChild(r rune, bitmask uint64, val rune, term bool) *Node {
+	node := newNode(n, val, bitmask, term)
+	n.children[r] = node
+	return node
+}
+
+func (n *Node) RemoveChild(r rune) {
+	delete(n.children, r)
+
+	n.recalculateMask()
+	for parent := n.Parent(); parent != nil; parent = parent.Parent() {
+		parent.recalculateMask()
+	}
+}
+
+func (n *Node) recalculateMask() {
+	n.mask = maskrune(n.Val())
+	for k, c := range n.Children() {
+		n.mask |= (maskrune(k) | c.Mask())
+	}
+}
+
+// Returns the parent of this node.
+func (n Node) Parent() *Node {
+	return n.parent
+}
+
+// Returns the meta information of this node.
+func (n Node) Meta() interface{} {
+	return n.meta
+}
+
+// Returns the children of this node.
+func (n Node) Children() map[rune]*Node {
+	return n.children
+}
+
+func (n Node) Val() rune {
+	return n.val
+}
+
+// Returns a uint64 representing the current
+// mask of this node.
+func (n Node) Mask() uint64 {
+	return n.mask
+}
+
 func findNode(node *Node, runes []rune) *Node {
 	if node == nil {
 		return nil
@@ -207,25 +226,6 @@ func findNode(node *Node, runes []rune) *Node {
 	}
 
 	return findNode(n, nrunes)
-}
-
-func (t Trie) addrune(node *Node, runes []rune, i int) *Node {
-	if len(runes) == 0 {
-		return node.NewChild(0, 0, nul, true)
-	}
-
-	r := runes[0]
-	c := node.Children()
-
-	n, ok := c[r]
-	bitmask := maskruneslice(runes)
-	if !ok {
-		n = node.NewChild(r, bitmask, r, false)
-	}
-	n.mask |= bitmask
-
-	i++
-	return t.addrune(n, runes[1:], i)
 }
 
 func maskruneslice(rs []rune) uint64 {
