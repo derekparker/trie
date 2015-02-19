@@ -1,3 +1,5 @@
+[![GoDoc](https://godoc.org/github.com/derekparker/trie?status.svg)](https://godoc.org/github.com/derekparker/trie)
+
 # Trie
 Data structure and relevant algorithms for extremely fast prefix/fuzzy string searching.
 
