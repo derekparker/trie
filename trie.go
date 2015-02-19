@@ -256,18 +256,20 @@ func collect(node *Node, pre []rune, keys *[]string) {
 }
 
 func fuzzycollect(node *Node, partialmatch, partial []rune, keys *[]string) {
-	partiallen := len(partial)
+	var (
+		m          uint64
+		partiallen = len(partial)
+	)
 
 	if partiallen == 0 {
 		collect(node, partialmatch, keys)
 		return
 	}
 
-	m := maskruneslice(partial)
 	children := node.Children()
+	m = maskruneslice(partial)
 	for v, n := range children {
-		xor := n.Mask() ^ m
-		if (xor & m) != 0 {
+		if (n.mask & m) != m {
 			continue
 		}
 
