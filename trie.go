@@ -91,7 +91,7 @@ func (n Node) Mask() uint64 {
 }
 
 // Creates a new Trie with an initialized root Node.
-func NewTrie() *Trie {
+func New() *Trie {
 	node := newNode(nil, 0, 0, false)
 	return &Trie{
 		root: node,

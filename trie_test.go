@@ -26,7 +26,7 @@ func addFromFile(t *Trie, path string) {
 }
 
 func TestTrieAdd(t *testing.T) {
-	trie := NewTrie()
+	trie := New()
 
 	n := trie.Add("foo", 1)
 
@@ -36,7 +36,7 @@ func TestTrieAdd(t *testing.T) {
 }
 
 func TestTrieFind(t *testing.T) {
-	trie := NewTrie()
+	trie := New()
 	trie.Add("foo", 1)
 
 	n, err := trie.Find("foo")
@@ -50,7 +50,7 @@ func TestTrieFind(t *testing.T) {
 }
 
 func TestRemove(t *testing.T) {
-	trie := NewTrie()
+	trie := New()
 	initial := []string{"football", "foostar", "foosball"}
 
 	for _, key := range initial {
@@ -84,7 +84,7 @@ func TestRemove(t *testing.T) {
 }
 
 func TestTrieKeys(t *testing.T) {
-	trie := NewTrie()
+	trie := New()
 	expected := []string{"bar", "foo"}
 
 	for _, key := range expected {
@@ -107,7 +107,7 @@ func TestTrieKeys(t *testing.T) {
 }
 
 func TestPrefixSearch(t *testing.T) {
-	trie := NewTrie()
+	trie := New()
 	expected := []string{
 		"foo",
 		"foosball",
@@ -160,7 +160,7 @@ func TestPrefixSearch(t *testing.T) {
 }
 
 func TestFuzzySearch(t *testing.T) {
-	trie := NewTrie()
+	trie := New()
 	setup := []string{
 		"foosball",
 		"football",
@@ -201,7 +201,7 @@ func TestFuzzySearch(t *testing.T) {
 }
 
 func TestFuzzySearchSorting(t *testing.T) {
-	trie := NewTrie()
+	trie := New()
 	setup := []string{
 		"foosball",
 		"football",
@@ -229,7 +229,7 @@ func TestFuzzySearchSorting(t *testing.T) {
 }
 
 func BenchmarkTieKeys(b *testing.B) {
-	trie := NewTrie()
+	trie := New()
 	keys := []string{"bar", "foo", "baz", "bur", "zum", "burzum", "bark", "barcelona", "football", "foosball", "footlocker"}
 
 	for _, key := range keys {
@@ -243,7 +243,7 @@ func BenchmarkTieKeys(b *testing.B) {
 }
 
 func BenchmarkPrefixSearch(b *testing.B) {
-	trie := NewTrie()
+	trie := New()
 	addFromFile(trie, "/usr/share/dict/words")
 
 	b.ResetTimer()
@@ -253,7 +253,7 @@ func BenchmarkPrefixSearch(b *testing.B) {
 }
 
 func BenchmarkFuzzySearch(b *testing.B) {
-	trie := NewTrie()
+	trie := New()
 	addFromFile(trie, "/usr/share/dict/words")
 
 	b.ResetTimer()
