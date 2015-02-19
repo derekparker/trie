@@ -195,7 +195,8 @@ func TestFuzzySearch(t *testing.T) {
 		actual := trie.FuzzySearch(test.partial)
 
 		if len(actual) != test.length {
-			t.Errorf("Expected len(actual) to == %d, was %d for %s", test.length, len(actual), test.partial)
+			t.Errorf("Expected len(actual) to == %d, was %d for %s actual was %#v",
+				test.length, len(actual), test.partial, actual)
 		}
 	}
 }
@@ -220,6 +221,9 @@ func TestFuzzySearchSorting(t *testing.T) {
 	actual := trie.FuzzySearch("fz")
 	expected := []string{"bfrza", "foo/bart/baz.go"}
 
+	if len(actual) != len(expected) {
+		t.Fatalf("expected len %d got %d", len(expected), len(actual))
+	}
 	for i, v := range expected {
 		if actual[i] != v {
 			t.Errorf("Expected %s got %s", v, actual[i])

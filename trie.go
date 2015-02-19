@@ -103,7 +103,7 @@ func (t Trie) FuzzySearch(pre string) []string {
 		pm   []rune
 	)
 
-	fuzzycollect(t.Root(), pm, []rune(pre), &keys)
+	fuzzycollect(t.Root(), 0, pm, []rune(pre), &keys)
 	sort.Sort(ByKeys(keys))
 
 	return keys
@@ -255,33 +255,29 @@ func collect(node *Node, pre []rune, keys *[]string) {
 	}
 }
 
-func fuzzycollect(node *Node, partialmatch, partial []rune, keys *[]string) {
+func fuzzycollect(node *Node, idx int, partialmatch, partial []rune, keys *[]string) {
 	var (
 		m          uint64
 		partiallen = len(partial)
 	)
 
-	if partiallen == 0 {
+	if partiallen == idx {
 		collect(node, partialmatch, keys)
 		return
 	}
 
 	children := node.Children()
-	m = maskruneslice(partial)
+	m = maskruneslice(partial[idx:])
 	for v, n := range children {
 		if (n.mask & m) != m {
 			continue
 		}
 
-		npartial := partial
-		if v == partial[0] {
-			if partiallen > 1 {
-				npartial = partial[1:]
-			} else {
-				npartial = partial[0:0]
-			}
+		if v == partial[idx] {
+			fuzzycollect(n, idx+1, append(partialmatch, v), partial, keys)
+			continue
 		}
 
-		fuzzycollect(n, append(partialmatch, v), npartial, keys)
+		fuzzycollect(n, idx, append(partialmatch, v), partial, keys)
 	}
 }
