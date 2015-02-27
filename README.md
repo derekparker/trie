@@ -8,7 +8,7 @@ Data structure and relevant algorithms for extremely fast prefix/fuzzy string se
 Create a Trie with:
 
 ```Go
-t := trie.NewTrie()
+t := trie.New()
 ```
 
 Add Keys with:
