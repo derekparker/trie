@@ -49,6 +49,20 @@ func TestTrieFind(t *testing.T) {
 	}
 }
 
+func TestTrieFindMissing(t *testing.T) {
+	trie := New()
+
+	n, err := trie.Find("foo")
+
+	if err == nil {
+		t.Errorf("Expected err not to be nil")
+	}
+
+	if n != nil {
+		t.Errorf("Expected nil, got: %v", n)
+	}
+}
+
 func TestRemove(t *testing.T) {
 	trie := New()
 	initial := []string{"football", "foostar", "foosball"}

@@ -61,7 +61,10 @@ func (t *Trie) Add(key string, meta interface{}) *Node {
 // with `key`.
 func (t *Trie) Find(key string) (*Node, error) {
 	node := t.nodeAtPath(key)
-	node = node.Children()[nul]
+
+	if node != nil {
+		node = node.Children()[nul]
+	}
 
 	if node == nil || !node.term {
 		err := fmt.Errorf("could not find key: %s in trie", key)
