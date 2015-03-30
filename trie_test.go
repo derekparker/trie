@@ -39,8 +39,8 @@ func TestTrieFind(t *testing.T) {
 	trie := New()
 	trie.Add("foo", 1)
 
-	n, err := trie.Find("foo")
-	if err != nil {
+	n, ok := trie.Find("foo")
+	if ok != true {
 		t.Fatal("Could not find node")
 	}
 
@@ -52,12 +52,10 @@ func TestTrieFind(t *testing.T) {
 func TestTrieFindMissing(t *testing.T) {
 	trie := New()
 
-	n, err := trie.Find("foo")
-
-	if err == nil {
-		t.Errorf("Expected err not to be nil")
+	n, ok := trie.Find("foo")
+	if ok != false {
+		t.Errorf("Expected ok to be false")
 	}
-
 	if n != nil {
 		t.Errorf("Expected nil, got: %v", n)
 	}

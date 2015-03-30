@@ -6,7 +6,6 @@
 package trie
 
 import (
-	"fmt"
 	"sort"
 )
 
@@ -59,19 +58,17 @@ func (t *Trie) Add(key string, meta interface{}) *Node {
 
 // Finds and returns meta data associated
 // with `key`.
-func (t *Trie) Find(key string) (*Node, error) {
+func (t *Trie) Find(key string) (*Node, bool) {
 	node := t.nodeAtPath(key)
-
 	if node != nil {
 		node = node.Children()[nul]
 	}
 
 	if node == nil || !node.term {
-		err := fmt.Errorf("could not find key: %s in trie", key)
-		return nil, err
+		return nil, false
 	}
 
-	return node, nil
+	return node, true
 }
 
 // Removes a key from the trie, ensuring that
