@@ -60,11 +60,12 @@ func (t *Trie) Add(key string, meta interface{}) *Node {
 // with `key`.
 func (t *Trie) Find(key string) (*Node, bool) {
 	node := t.nodeAtPath(key)
-	if node != nil {
-		node = node.Children()[nul]
+	if node == nil {
+		return nil, false
 	}
+	node = node.Children()[nul]
 
-	if node == nil || !node.term {
+	if !node.term {
 		return nil, false
 	}
 
