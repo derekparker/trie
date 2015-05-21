@@ -10,6 +10,7 @@ import "sort"
 type Node struct {
 	val      rune
 	term     bool
+	depth    int
 	meta     interface{}
 	mask     uint64
 	parent   *Node
@@ -55,13 +56,13 @@ func (t *Trie) Add(key string, meta interface{}) *Node {
 	node := t.root
 	for i := range runes {
 		r := runes[i]
-		bitmask := maskruneslice(runes[i:])
-		n, ok := node.children[r]
-		if !ok {
-			n = node.NewChild(r, bitmask, r, false)
+		bitmask := maskruneslice(runes[i+1:])
+		if n, ok := node.children[r]; ok {
+			node = n
+			node.mask |= bitmask
+			continue
 		}
-		node = n
-		node.mask |= bitmask
+		node = node.NewChild(r, bitmask, r, false)
 	}
 	node = node.NewChild(0, 0, nul, true)
 	node.meta = meta
@@ -141,12 +142,19 @@ func (t Trie) nodeAtPath(pre string) *Node {
 }
 
 func newNode(parent *Node, val rune, m uint64, term bool) *Node {
+	var depth int
+	if parent == nil {
+		depth = 0
+	} else {
+		depth = parent.depth + 1
+	}
 	return &Node{
 		val:      val,
 		mask:     m,
 		term:     term,
 		parent:   parent,
 		children: make(map[rune]*Node),
+		depth:    depth,
 	}
 }
 
@@ -226,15 +234,28 @@ func maskruneslice(rs []rune) uint64 {
 }
 
 func collect(node *Node, pre []rune, keys *[]string) {
-	for r, n := range node.children {
-		if n.term {
-			*keys = append(*keys, string(pre))
-			continue
+	var (
+		k     []string
+		n     *Node
+		nodes []*Node
+	)
+	nodes = append(nodes, node)
+	for len(nodes) != 0 {
+		i := len(nodes) - 1
+		n = nodes[i]
+		nodes = nodes[:i]
+		for _, c := range n.children {
+			nodes = append(nodes, c)
 		}
-
-		npre := append(pre, r)
-		collect(n, npre, keys)
+		if n.term {
+			word := make([]rune, n.depth-1)
+			for p := n.parent; p.depth != 0; p = p.parent {
+				word[p.depth-1] = p.val
+			}
+			k = append(k, string(word))
+		}
 	}
+	*keys = append(*keys, k...)
 }
 
 func fuzzycollect(node *Node, idx int, partialmatch, partial []rune, keys *[]string) {
