@@ -83,7 +83,6 @@ func TestRemove(t *testing.T) {
 	}
 
 	keys = trie.FuzzySearch("foo")
-
 	if len(keys) != 2 {
 		t.Errorf("Expected 2 keys got %d", len(keys))
 	}

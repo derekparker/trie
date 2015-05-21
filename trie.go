@@ -5,9 +5,7 @@
 // nodes that have letter values associated with them.
 package trie
 
-import (
-	"sort"
-)
+import "sort"
 
 type Node struct {
 	val      rune
@@ -29,7 +27,10 @@ func (a ByKeys) Len() int           { return len(a) }
 func (a ByKeys) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByKeys) Less(i, j int) bool { return len(a[i]) < len(a[j]) }
 
-const nul = 0x0
+const (
+	nul    = 0x0
+	asciiA = 'a'
+)
 
 // Creates a new Trie with an initialized root Node.
 func New() *Trie {
@@ -158,17 +159,11 @@ func (n *Node) NewChild(r rune, bitmask uint64, val rune, term bool) *Node {
 
 func (n *Node) RemoveChild(r rune) {
 	delete(n.children, r)
-
-	n.recalculateMask()
-	for parent := n.Parent(); parent != nil; parent = parent.Parent() {
-		parent.recalculateMask()
-	}
-}
-
-func (n *Node) recalculateMask() {
-	n.mask = maskrune(n.Val())
-	for k, c := range n.Children() {
-		n.mask |= (maskrune(k) | c.Mask())
+	for nd := n.parent; nd != nil; nd = nd.parent {
+		nd.mask ^= nd.mask
+		for rn, c := range nd.children {
+			nd.mask |= ((uint64(1) << uint64(rn-asciiA)) | c.mask)
+		}
 	}
 }
 
@@ -224,20 +219,14 @@ func findNode(node *Node, runes []rune) *Node {
 func maskruneslice(rs []rune) uint64 {
 	var m uint64
 	for _, r := range rs {
-		m |= maskrune(r)
+		m |= uint64(1) << uint64(r-asciiA)
 	}
 
 	return m
 }
 
-func maskrune(r rune) uint64 {
-	i := uint64(1)
-	return i << (uint64(r) - 97)
-}
-
 func collect(node *Node, pre []rune, keys *[]string) {
-	children := node.Children()
-	for r, n := range children {
+	for r, n := range node.children {
 		if n.term {
 			*keys = append(*keys, string(pre))
 			continue
@@ -251,6 +240,7 @@ func collect(node *Node, pre []rune, keys *[]string) {
 func fuzzycollect(node *Node, idx int, partialmatch, partial []rune, keys *[]string) {
 	var (
 		m          uint64
+		val        rune
 		partiallen = len(partial)
 	)
 
@@ -259,14 +249,14 @@ func fuzzycollect(node *Node, idx int, partialmatch, partial []rune, keys *[]str
 		return
 	}
 
-	children := node.Children()
 	m = maskruneslice(partial[idx:])
-	for v, n := range children {
-		if (n.mask & m) != m {
+	for v, n := range node.children {
+		val = partial[idx]
+		if (n.mask&m) != m && v != val {
 			continue
 		}
 
-		if v == partial[idx] {
+		if v == val {
 			fuzzycollect(n, idx+1, append(partialmatch, v), partial, keys)
 			continue
 		}
