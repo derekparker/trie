@@ -114,7 +114,7 @@ func (t *Trie) Keys() []string {
 
 // Performs a fuzzy search against the keys in the trie.
 func (t Trie) FuzzySearch(pre string) []string {
-	keys := fuzzycollect(t.Root(), 0, []rune(pre))
+	keys := fuzzycollect(t.Root(), []rune(pre))
 	sort.Sort(ByKeys(keys))
 	return keys
 }
@@ -258,21 +258,23 @@ type potentialSubtree struct {
 	node *Node
 }
 
-func fuzzycollect(node *Node, iidx int, partial []rune) []string {
+func fuzzycollect(node *Node, partial []rune) []string {
 	var (
 		m         uint64
+		i         int
+		p         potentialSubtree
+		idx       int
 		val       rune
-		keys      []string
-		potential []potentialSubtree
-		nodes     []*Node
+		potential = make([]potentialSubtree, 0, 10)
+		keys      = make([]string, 0, 10)
 	)
 
 	potential = append(potential, potentialSubtree{node: node, idx: 0})
 	for len(potential) > 0 {
-		i := len(potential) - 1
-		p := potential[i]
+		i = len(potential) - 1
+		p = potential[i]
 		potential = potential[:i]
-		idx := p.idx
+		idx = p.idx
 		m = maskruneslice(partial[idx:])
 
 		val = partial[idx]
@@ -281,18 +283,14 @@ func fuzzycollect(node *Node, iidx int, partial []rune) []string {
 		}
 		if p.node.val == val {
 			idx++
-		}
-		if idx == len(partial) {
-			nodes = append(nodes, p.node)
-			continue
+			if idx == len(partial) {
+				keys = append(keys, collect(p.node)...)
+				continue
+			}
 		}
 		for _, c := range p.node.children {
 			potential = append(potential, potentialSubtree{node: c, idx: idx})
 		}
-	}
-
-	for i := range nodes {
-		keys = append(keys, collect(nodes[i])...)
 	}
 	return keys
 }
