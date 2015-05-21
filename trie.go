@@ -5,10 +5,7 @@
 // nodes that have letter values associated with them.
 package trie
 
-import (
-	"fmt"
-	"sort"
-)
+import "sort"
 
 type Node struct {
 	val      rune
@@ -56,18 +53,20 @@ func (t *Trie) Root() *Node {
 func (t *Trie) Add(key string, meta interface{}) *Node {
 	t.size++
 	runes := []rune(key)
+	bitmask := maskruneslice(runes)
 	node := t.root
+	node.mask |= bitmask
 	for i := range runes {
 		r := runes[i]
-		bitmask := maskruneslice(runes[i+1:])
+		bitmask = maskruneslice(runes[i:])
 		if n, ok := node.children[r]; ok {
 			node = n
 			node.mask |= bitmask
-			continue
+		} else {
+			node = node.NewChild(r, bitmask, false)
 		}
-		node = node.NewChild(r, bitmask, r, false)
 	}
-	node = node.NewChild(0, 0, nul, true)
+	node = node.NewChild(nul, 0, true)
 	node.meta = meta
 	return node
 }
@@ -153,9 +152,10 @@ func newNode(parent *Node, val rune, m uint64, term bool) *Node {
 }
 
 // Creates and returns a pointer to a new child for the node.
-func (n *Node) NewChild(r rune, bitmask uint64, val rune, term bool) *Node {
+func (n *Node) NewChild(val rune, bitmask uint64, term bool) *Node {
 	node := newNode(n, val, bitmask, term)
-	n.children[r] = node
+	n.children[val] = node
+	n.mask |= bitmask
 	return node
 }
 
@@ -163,8 +163,9 @@ func (n *Node) RemoveChild(r rune) {
 	delete(n.children, r)
 	for nd := n.parent; nd != nil; nd = nd.parent {
 		nd.mask ^= nd.mask
-		for rn, c := range nd.children {
-			nd.mask |= ((uint64(1) << uint64(rn-asciiA)) | c.mask)
+		nd.mask |= uint64(1) << uint64(nd.val-asciiA)
+		for _, c := range nd.children {
+			nd.mask |= c.mask
 		}
 	}
 }
@@ -275,8 +276,7 @@ func fuzzycollect(node *Node, iidx int, partial []rune) []string {
 		m = maskruneslice(partial[idx:])
 
 		val = partial[idx]
-		if (p.node.mask&m) != m && p.node.val != val {
-			fmt.Println("continue")
+		if (p.node.mask & m) != m {
 			continue
 		}
 		if p.node.val == val {
