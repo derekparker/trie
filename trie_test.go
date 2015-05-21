@@ -204,7 +204,6 @@ func TestFuzzySearch(t *testing.T) {
 
 	for _, test := range tests {
 		actual := trie.FuzzySearch(test.partial)
-
 		if len(actual) != test.length {
 			t.Errorf("Expected len(actual) to == %d, was %d for %s actual was %#v",
 				test.length, len(actual), test.partial, actual)

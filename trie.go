@@ -5,11 +5,15 @@
 // nodes that have letter values associated with them.
 package trie
 
-import "sort"
+import (
+	"sort"
+	"unsafe"
+)
 
 type Node struct {
 	val      rune
 	term     bool
+	depth    int
 	meta     interface{}
 	mask     uint64
 	parent   *Node
@@ -27,16 +31,12 @@ func (a ByKeys) Len() int           { return len(a) }
 func (a ByKeys) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByKeys) Less(i, j int) bool { return len(a[i]) < len(a[j]) }
 
-const (
-	nul    = 0x0
-	asciiA = 'a'
-)
+const nul = 0x0
 
 // Creates a new Trie with an initialized root Node.
 func New() *Trie {
-	node := newNode(nil, 0, 0, false)
 	return &Trie{
-		root: node,
+		root: &Node{children: make(map[rune]*Node), depth: 0},
 		size: 0,
 	}
 }
@@ -52,26 +52,27 @@ func (t *Trie) Root() *Node {
 func (t *Trie) Add(key string, meta interface{}) *Node {
 	t.size++
 	runes := []rune(key)
+	bitmask := maskruneslice(runes)
 	node := t.root
+	node.mask |= bitmask
 	for i := range runes {
 		r := runes[i]
-		bitmask := maskruneslice(runes[i:])
-		n, ok := node.children[r]
-		if !ok {
-			n = node.NewChild(r, bitmask, r, false)
+		bitmask = maskruneslice(runes[i:])
+		if n, ok := node.children[r]; ok {
+			node = n
+			node.mask |= bitmask
+		} else {
+			node = node.NewChild(r, bitmask, nil, false)
 		}
-		node = n
-		node.mask |= bitmask
 	}
-	node = node.NewChild(0, 0, nul, true)
-	node.meta = meta
+	node = node.NewChild(nul, 0, meta, true)
 	return node
 }
 
 // Finds and returns meta data associated
 // with `key`.
 func (t *Trie) Find(key string) (*Node, bool) {
-	node := t.nodeAtPath(key)
+	node := findNode(t.Root(), []rune(key))
 	if node == nil {
 		return nil, false
 	}
@@ -90,7 +91,7 @@ func (t *Trie) Remove(key string) {
 	var (
 		i    int
 		rs   = []rune(key)
-		node = t.nodeAtPath(key)
+		node = findNode(t.Root(), []rune(key))
 	)
 
 	t.size--
@@ -111,49 +112,34 @@ func (t *Trie) Keys() []string {
 
 // Performs a fuzzy search against the keys in the trie.
 func (t Trie) FuzzySearch(pre string) []string {
-	var (
-		keys []string
-		pm   []rune
-	)
-
-	fuzzycollect(t.Root(), 0, pm, []rune(pre), &keys)
+	keys := fuzzycollect(t.Root(), []rune(pre))
 	sort.Sort(ByKeys(keys))
-
 	return keys
 }
 
 // Performs a prefix search against the keys in the trie.
 func (t Trie) PrefixSearch(pre string) []string {
-	var keys []string
-
-	node := t.nodeAtPath(pre)
+	node := findNode(t.Root(), []rune(pre))
 	if node == nil {
-		return keys
+		return nil
 	}
 
-	collect(node, []rune(pre), &keys)
-	return keys
-}
-
-func (t Trie) nodeAtPath(pre string) *Node {
-	runes := []rune(pre)
-	return findNode(t.Root(), runes)
-}
-
-func newNode(parent *Node, val rune, m uint64, term bool) *Node {
-	return &Node{
-		val:      val,
-		mask:     m,
-		term:     term,
-		parent:   parent,
-		children: make(map[rune]*Node),
-	}
+	return collect(node)
 }
 
 // Creates and returns a pointer to a new child for the node.
-func (n *Node) NewChild(r rune, bitmask uint64, val rune, term bool) *Node {
-	node := newNode(n, val, bitmask, term)
-	n.children[r] = node
+func (n *Node) NewChild(val rune, bitmask uint64, meta interface{}, term bool) *Node {
+	node := &Node{
+		val:      val,
+		mask:     bitmask,
+		term:     term,
+		meta:     meta,
+		parent:   n,
+		children: make(map[rune]*Node),
+		depth:    n.depth + 1,
+	}
+	n.children[val] = node
+	n.mask |= bitmask
 	return node
 }
 
@@ -161,8 +147,9 @@ func (n *Node) RemoveChild(r rune) {
 	delete(n.children, r)
 	for nd := n.parent; nd != nil; nd = nd.parent {
 		nd.mask ^= nd.mask
-		for rn, c := range nd.children {
-			nd.mask |= ((uint64(1) << uint64(rn-asciiA)) | c.mask)
+		nd.mask |= uint64(1) << uint64(nd.val-'a')
+		for _, c := range nd.children {
+			nd.mask |= c.mask
 		}
 	}
 }
@@ -219,48 +206,70 @@ func findNode(node *Node, runes []rune) *Node {
 func maskruneslice(rs []rune) uint64 {
 	var m uint64
 	for _, r := range rs {
-		m |= uint64(1) << uint64(r-asciiA)
+		m |= uint64(1) << uint64(r-'a')
 	}
-
 	return m
 }
 
-func collect(node *Node, pre []rune, keys *[]string) {
-	for r, n := range node.children {
-		if n.term {
-			*keys = append(*keys, string(pre))
-			continue
+func collect(node *Node) []string {
+	var (
+		keys []string
+		n    *Node
+		i    int
+	)
+	nodes := []*Node{node}
+	for l := len(nodes); l != 0; l = len(nodes) {
+		i = l - 1
+		n = nodes[i]
+		nodes = nodes[:i]
+		for _, c := range n.children {
+			nodes = append(nodes, c)
 		}
-
-		npre := append(pre, r)
-		collect(n, npre, keys)
+		if n.term {
+			word := make([]byte, n.depth-1)
+			for p := n.parent; p.depth != 0; p = p.parent {
+				word[p.depth-1] = byte(p.val)
+			}
+			keys = append(keys, *(*string)(unsafe.Pointer(&word)))
+		}
 	}
+	return keys
 }
 
-func fuzzycollect(node *Node, idx int, partialmatch, partial []rune, keys *[]string) {
+type potentialSubtree struct {
+	idx  int
+	node *Node
+}
+
+func fuzzycollect(node *Node, partial []rune) []string {
 	var (
-		m          uint64
-		val        rune
-		partiallen = len(partial)
+		m    uint64
+		i    int
+		p    potentialSubtree
+		keys []string
 	)
 
-	if partiallen == idx {
-		collect(node, partialmatch, keys)
-		return
-	}
-
-	m = maskruneslice(partial[idx:])
-	for v, n := range node.children {
-		val = partial[idx]
-		if (n.mask&m) != m && v != val {
+	potential := []potentialSubtree{potentialSubtree{node: node, idx: 0}}
+	for l := len(potential); l > 0; l = len(potential) {
+		i = l - 1
+		p = potential[i]
+		potential = potential[:i]
+		m = maskruneslice(partial[p.idx:])
+		if (p.node.mask & m) != m {
 			continue
 		}
 
-		if v == val {
-			fuzzycollect(n, idx+1, append(partialmatch, v), partial, keys)
-			continue
+		if p.node.val == partial[p.idx] {
+			p.idx++
+			if p.idx == len(partial) {
+				keys = append(keys, collect(p.node)...)
+				continue
+			}
 		}
 
-		fuzzycollect(n, idx, append(partialmatch, v), partial, keys)
+		for _, c := range p.node.children {
+			potential = append(potential, potentialSubtree{node: c, idx: p.idx})
+		}
 	}
+	return keys
 }
