@@ -51,7 +51,18 @@ func (t *Trie) Root() *Node {
 func (t *Trie) Add(key string, meta interface{}) *Node {
 	t.size++
 	runes := []rune(key)
-	node := t.addrune(t.Root(), runes, 0)
+	node := t.root
+	for i := range runes {
+		r := runes[i]
+		bitmask := maskruneslice(runes[i:])
+		n, ok := node.children[r]
+		if !ok {
+			n = node.NewChild(r, bitmask, r, false)
+		}
+		node = n
+		node.mask |= bitmask
+	}
+	node = node.NewChild(0, 0, nul, true)
 	node.meta = meta
 	return node
 }
@@ -126,25 +137,6 @@ func (t Trie) PrefixSearch(pre string) []string {
 func (t Trie) nodeAtPath(pre string) *Node {
 	runes := []rune(pre)
 	return findNode(t.Root(), runes)
-}
-
-func (t Trie) addrune(node *Node, runes []rune, i int) *Node {
-	if len(runes) == 0 {
-		return node.NewChild(0, 0, nul, true)
-	}
-
-	r := runes[0]
-	c := node.Children()
-
-	n, ok := c[r]
-	bitmask := maskruneslice(runes)
-	if !ok {
-		n = node.NewChild(r, bitmask, r, false)
-	}
-	n.mask |= bitmask
-
-	i++
-	return t.addrune(n, runes[1:], i)
 }
 
 func newNode(parent *Node, val rune, m uint64, term bool) *Node {
