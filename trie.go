@@ -5,7 +5,10 @@
 // nodes that have letter values associated with them.
 package trie
 
-import "sort"
+import (
+	"fmt"
+	"sort"
+)
 
 type Node struct {
 	val      rune
@@ -112,28 +115,19 @@ func (t *Trie) Keys() []string {
 
 // Performs a fuzzy search against the keys in the trie.
 func (t Trie) FuzzySearch(pre string) []string {
-	var (
-		keys []string
-		pm   []rune
-	)
-
-	fuzzycollect(t.Root(), 0, pm, []rune(pre), &keys)
+	keys := fuzzycollect(t.Root(), 0, []rune(pre))
 	sort.Sort(ByKeys(keys))
-
 	return keys
 }
 
 // Performs a prefix search against the keys in the trie.
 func (t Trie) PrefixSearch(pre string) []string {
-	var keys []string
-
 	node := t.nodeAtPath(pre)
 	if node == nil {
-		return keys
+		return nil
 	}
 
-	collect(node, []rune(pre), &keys)
-	return keys
+	return collect(node)
 }
 
 func (t Trie) nodeAtPath(pre string) *Node {
@@ -233,7 +227,7 @@ func maskruneslice(rs []rune) uint64 {
 	return m
 }
 
-func collect(node *Node, pre []rune, keys *[]string) {
+func collect(node *Node) []string {
 	var (
 		k     []string
 		n     *Node
@@ -255,33 +249,50 @@ func collect(node *Node, pre []rune, keys *[]string) {
 			k = append(k, string(word))
 		}
 	}
-	*keys = append(*keys, k...)
+	return k
 }
 
-func fuzzycollect(node *Node, idx int, partialmatch, partial []rune, keys *[]string) {
+type potentialSubtree struct {
+	idx  int
+	node *Node
+}
+
+func fuzzycollect(node *Node, iidx int, partial []rune) []string {
 	var (
-		m          uint64
-		val        rune
-		partiallen = len(partial)
+		m         uint64
+		val       rune
+		keys      []string
+		potential []potentialSubtree
+		nodes     []*Node
 	)
 
-	if partiallen == idx {
-		collect(node, partialmatch, keys)
-		return
-	}
+	potential = append(potential, potentialSubtree{node: node, idx: 0})
+	for len(potential) > 0 {
+		i := len(potential) - 1
+		p := potential[i]
+		potential = potential[:i]
+		idx := p.idx
+		m = maskruneslice(partial[idx:])
 
-	m = maskruneslice(partial[idx:])
-	for v, n := range node.children {
 		val = partial[idx]
-		if (n.mask&m) != m && v != val {
+		if (p.node.mask&m) != m && p.node.val != val {
+			fmt.Println("continue")
 			continue
 		}
-
-		if v == val {
-			fuzzycollect(n, idx+1, append(partialmatch, v), partial, keys)
+		if p.node.val == val {
+			idx++
+		}
+		if idx == len(partial) {
+			nodes = append(nodes, p.node)
 			continue
 		}
-
-		fuzzycollect(n, idx, append(partialmatch, v), partial, keys)
+		for _, c := range p.node.children {
+			potential = append(potential, potentialSubtree{node: c, idx: idx})
+		}
 	}
+
+	for i := range nodes {
+		keys = append(keys, collect(nodes[i])...)
+	}
+	return keys
 }
