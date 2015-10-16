@@ -7,7 +7,6 @@ package trie
 
 import (
 	"sort"
-	"unsafe"
 )
 
 type Node struct {
@@ -226,11 +225,11 @@ func collect(node *Node) []string {
 			nodes = append(nodes, c)
 		}
 		if n.term {
-			word := make([]byte, n.depth-1)
+			word := ""
 			for p := n.parent; p.depth != 0; p = p.parent {
-				word[p.depth-1] = byte(p.val)
+				word = string(p.val) + word
 			}
-			keys = append(keys, *(*string)(unsafe.Pointer(&word)))
+			keys = append(keys, word)
 		}
 	}
 	return keys
