@@ -275,3 +275,37 @@ func BenchmarkFuzzySearch(b *testing.B) {
 		_ = trie.FuzzySearch("fs")
 	}
 }
+
+func TestSupportChinese(t *testing.T) {
+	trie := New()
+	expected := []string{"苹果 沂水县", "苹果", "大蒜", "大豆"}
+
+	for _, key := range expected {
+		trie.Add(key, nil)
+	}
+
+	tests := []struct {
+		pre      string
+		expected []string
+		length   int
+	}{
+		{"苹", expected[:2], len(expected[:2])},
+		{"大", expected[2:], len(expected[2:])},
+		{"大蒜", []string{"大蒜"}, 1},
+	}
+
+	for _, test := range tests {
+		actual := trie.PrefixSearch(test.pre)
+		sort.Strings(actual)
+		sort.Strings(test.expected)
+		if len(actual) != test.length {
+			t.Errorf("Expected len(actual) to == %d for pre %s", test.length, test.pre)
+		}
+
+		for i, key := range actual {
+			if key != test.expected[i] {
+				t.Errorf("Expected %v got: %v", test.expected[i], key)
+			}
+		}
+	}
+}
