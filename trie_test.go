@@ -63,6 +63,25 @@ func TestTrieFindMissing(t *testing.T) {
 
 func TestRemove(t *testing.T) {
 	trie := New()
+	initial := []string{"football"}
+
+	for _, key := range initial {
+		trie.Add(key, nil)
+	}
+
+	trie.Remove("football")
+	keys := trie.Keys()
+
+	if len(keys) != 0 {
+		t.Errorf("Expected 0 keys got %d", len(keys))
+	}
+
+	trie.Remove("aabb") //this will core dump
+}
+
+/*
+func TestRemove(t *testing.T) {
+	trie := New()
 	initial := []string{"football", "foostar", "foosball"}
 
 	for _, key := range initial {
@@ -93,6 +112,7 @@ func TestRemove(t *testing.T) {
 		}
 	}
 }
+*/
 
 func TestTrieKeys(t *testing.T) {
 	trie := New()
