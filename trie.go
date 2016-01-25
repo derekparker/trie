@@ -78,7 +78,7 @@ func (t *Trie) Find(key string) (*Node, bool) {
 	}
 	node = node.Children()[nul]
 
-	if !node.term {
+	if node == nil || !node.term {
 		return nil, false
 	}
 
@@ -87,12 +87,16 @@ func (t *Trie) Find(key string) (*Node, bool) {
 
 // Removes a key from the trie, ensuring that
 // all bitmasks up to root are appropriately recalculated.
-func (t *Trie) Remove(key string) {
+func (t *Trie) Remove(key string) bool {
 	var (
 		i    int
 		rs   = []rune(key)
 		node = findNode(t.Root(), []rune(key))
 	)
+
+	if node == nil {
+		return false
+	}
 
 	t.size--
 	for n := node.Parent(); n != nil; n = n.Parent() {
@@ -103,6 +107,8 @@ func (t *Trie) Remove(key string) {
 			break
 		}
 	}
+
+	return true
 }
 
 // Returns all the keys currently stored in the trie.
@@ -145,7 +151,8 @@ func (n *Node) NewChild(val rune, bitmask uint64, meta interface{}, term bool) *
 
 func (n *Node) RemoveChild(r rune) {
 	delete(n.children, r)
-	for nd := n.parent; nd != nil; nd = nd.parent {
+
+	for nd := n; nd != nil; nd = nd.parent {
 		nd.mask ^= nd.mask
 		nd.mask |= uint64(1) << uint64(nd.val-'a')
 		for _, c := range nd.children {
