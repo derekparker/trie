@@ -5,9 +5,7 @@
 // nodes that have letter values associated with them.
 package trie
 
-import (
-	"sort"
-)
+import "sort"
 
 type Node struct {
 	val      rune
@@ -75,7 +73,11 @@ func (t *Trie) Find(key string) (*Node, bool) {
 	if node == nil {
 		return nil, false
 	}
-	node = node.Children()[nul]
+
+	node, ok := node.Children()[nul]
+	if !ok {
+		return nil, false
+	}
 
 	if !node.term {
 		return nil, false

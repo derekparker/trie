@@ -49,6 +49,20 @@ func TestTrieFind(t *testing.T) {
 	}
 }
 
+func TestTrieFindMissingWithSubtree(t *testing.T) {
+	trie := New()
+	trie.Add("fooish", 1)
+	trie.Add("foobar", 1)
+
+	n, ok := trie.Find("foo")
+	if ok != false {
+		t.Errorf("Expected ok to be false")
+	}
+	if n != nil {
+		t.Errorf("Expected nil, got: %v", n)
+	}
+}
+
 func TestTrieFindMissing(t *testing.T) {
 	trie := New()
 
