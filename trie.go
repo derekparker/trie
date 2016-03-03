@@ -75,11 +75,7 @@ func (t *Trie) Find(key string) (*Node, bool) {
 	}
 
 	node, ok := node.Children()[nul]
-	if !ok {
-		return nil, false
-	}
-
-	if !node.term {
+	if !ok || !node.term {
 		return nil, false
 	}
 
