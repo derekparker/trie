@@ -40,6 +40,11 @@ Prefix search with:
 t.PrefixSearch("foo")
 ```
 
+Fast test for valid prefix:
+```Go
+t.HasKeysWithPrefix("foo")
+```
+
 Fuzzy search with:
 
 ```Go
