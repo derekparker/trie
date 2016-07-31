@@ -82,6 +82,11 @@ func (t *Trie) Find(key string) (*Node, bool) {
 	return node, true
 }
 
+func (t *Trie) HasKeysWithPrefix(key string) bool {
+	node := findNode(t.Root(), []rune(key))
+	return node != nil
+}
+
 // Removes a key from the trie, ensuring that
 // all bitmasks up to root are appropriately recalculated.
 func (t *Trie) Remove(key string) {

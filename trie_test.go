@@ -58,6 +58,12 @@ func TestTrieFindMissingWithSubtree(t *testing.T) {
 	if ok != false {
 		t.Errorf("Expected ok to be false")
 	}
+	if !trie.HasKeysWithPrefix("foo") {
+		t.Errorf("Expected result to be true")
+	}
+	if trie.HasKeysWithPrefix("fool") {
+		t.Errorf("Expected result to be false")
+	}
 	if n != nil {
 		t.Errorf("Expected nil, got: %v", n)
 	}
