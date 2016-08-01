@@ -67,14 +67,19 @@ func TestTrieHasKeysWithPrefix(t *testing.T) {
 	trie := New()
 	trie.Add("fooish", 1)
 	trie.Add("foobar", 1)
-	if !trie.HasKeysWithPrefix("foobar") {
-		t.Errorf("Expected result to be true")
+
+	testcases := []struct {
+		key      string
+		expected bool
+	}{
+		{"foobar", true},
+		{"foo", true},
+		{"fool", false},
 	}
-	if !trie.HasKeysWithPrefix("foo") {
-		t.Errorf("Expected result to be true")
-	}
-	if trie.HasKeysWithPrefix("fool") {
-		t.Errorf("Expected result to be false")
+	for _, testcase := range testcases {
+		if trie.HasKeysWithPrefix(testcase.key) != testcase.expected {
+			t.Errorf("HasKeysWithPrefix(\"%s\"): expected result to be %t", testcase.key, testcase.expected)
+		}
 	}
 }
 
