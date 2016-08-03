@@ -63,6 +63,26 @@ func TestTrieFindMissingWithSubtree(t *testing.T) {
 	}
 }
 
+func TestTrieHasKeysWithPrefix(t *testing.T) {
+	trie := New()
+	trie.Add("fooish", 1)
+	trie.Add("foobar", 1)
+
+	testcases := []struct {
+		key      string
+		expected bool
+	}{
+		{"foobar", true},
+		{"foo", true},
+		{"fool", false},
+	}
+	for _, testcase := range testcases {
+		if trie.HasKeysWithPrefix(testcase.key) != testcase.expected {
+			t.Errorf("HasKeysWithPrefix(\"%s\"): expected result to be %t", testcase.key, testcase.expected)
+		}
+	}
+}
+
 func TestTrieFindMissing(t *testing.T) {
 	trie := New()
 
