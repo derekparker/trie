@@ -128,6 +128,23 @@ func TestRemove(t *testing.T) {
 	}
 }
 
+func TestRemoveRoot(t *testing.T) {
+	trie := New()
+	trie.Add("root", nil)
+	trie.Remove("root")
+	keys := trie.Keys()
+	if len(keys) != 0 {
+		t.Errorf("Expected 0 keys got %d", len(keys))
+	}
+
+	//try to write some data after the trie was purged
+	trie.Add("root", nil)
+	keys = trie.Keys()
+	if len(keys) != 1 {
+		t.Errorf("Expected 1 keys got %d", len(keys))
+	}
+}
+
 func TestTrieKeys(t *testing.T) {
 	trie := New()
 	expected := []string{"bar", "foo"}

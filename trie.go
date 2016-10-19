@@ -89,22 +89,33 @@ func (t *Trie) HasKeysWithPrefix(key string) bool {
 
 // Removes a key from the trie, ensuring that
 // all bitmasks up to root are appropriately recalculated.
-func (t *Trie) Remove(key string) {
+func (t *Trie) Remove(key string) bool {
 	var (
 		i    int
 		rs   = []rune(key)
 		node = findNode(t.Root(), []rune(key))
 	)
 
+	if node == nil {
+		return false
+	}
+
 	t.size--
 	for n := node.Parent(); n != nil; n = n.Parent() {
 		i++
+
+		if n == t.root {
+			t.root = &Node{children: make(map[rune]*Node)}
+		}
+
 		if len(n.Children()) > 1 {
 			r := rs[len(rs)-i]
 			n.RemoveChild(r)
 			break
 		}
 	}
+
+	return true
 }
 
 // Returns all the keys currently stored in the trie.
