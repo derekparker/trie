@@ -171,8 +171,16 @@ func (n Node) Children() map[rune]*Node {
 	return n.children
 }
 
+func (n Node) Terminating() bool {
+	return n.term
+}
+
 func (n Node) Val() rune {
 	return n.val
+}
+
+func (n Node) Depth() int {
+	return n.depth
 }
 
 // Returns a uint64 representing the current
