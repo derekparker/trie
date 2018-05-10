@@ -310,6 +310,13 @@ func BenchmarkFuzzySearch(b *testing.B) {
 	}
 }
 
+func BenchmarkBuildTree(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		trie := New()
+		addFromFile(trie, "/usr/share/dict/words")
+	}
+}
+
 func TestSupportChinese(t *testing.T) {
 	trie := New()
 	expected := []string{"苹果 沂水县", "苹果", "大蒜", "大豆"}
