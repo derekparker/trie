@@ -53,16 +53,14 @@ func (t *Trie) Add(key string, meta interface{}) *Node {
 	bitmask := maskruneslice(runes)
 	node := t.root
 	node.mask |= bitmask
-	cp := make([]rune, 0, len(runes))
 	for i := range runes {
 		r := runes[i]
-		cp = append(cp, r)
 		bitmask = maskruneslice(runes[i:])
 		if n, ok := node.children[r]; ok {
 			node = n
 			node.mask |= bitmask
 		} else {
-			node = node.NewChild(r, string(cp), bitmask, nil, false)
+			node = node.NewChild(r, "", bitmask, nil, false)
 		}
 	}
 	node = node.NewChild(nul, key, 0, meta, true)
