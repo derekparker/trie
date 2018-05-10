@@ -12,6 +12,7 @@ import (
 
 type Node struct {
 	val      rune
+	path     string
 	term     bool
 	depth    int
 	meta     interface{}
@@ -59,17 +60,19 @@ func (t *Trie) Add(key string, meta interface{}) *Node {
 	bitmask := maskruneslice(runes)
 	node := t.root
 	node.mask |= bitmask
+	cp := make([]rune, 0, len(runes))
 	for i := range runes {
 		r := runes[i]
+		cp = append(cp, r)
 		bitmask = maskruneslice(runes[i:])
 		if n, ok := node.children[r]; ok {
 			node = n
 			node.mask |= bitmask
 		} else {
-			node = node.NewChild(r, bitmask, nil, false)
+			node = node.NewChild(r, string(cp), bitmask, nil, false)
 		}
 	}
-	node = node.NewChild(nul, 0, meta, true)
+	node = node.NewChild(nul, key, 0, meta, true)
 	return node
 }
 
@@ -140,18 +143,19 @@ func (t Trie) PrefixSearch(pre string) []string {
 }
 
 // Creates and returns a pointer to a new child for the node.
-func (n *Node) NewChild(val rune, bitmask uint64, meta interface{}, term bool) *Node {
+func (parent *Node) NewChild(val rune, path string, bitmask uint64, meta interface{}, term bool) *Node {
 	node := &Node{
 		val:      val,
+		path:    path,
 		mask:     bitmask,
 		term:     term,
 		meta:     meta,
-		parent:   n,
+		parent:   parent,
 		children: make(map[rune]*Node),
-		depth:    n.depth + 1,
+		depth:    parent.depth + 1,
 	}
-	n.children[val] = node
-	n.mask |= bitmask
+	parent.children[node.val] = node
+	parent.mask |= bitmask
 	return node
 }
 
@@ -223,6 +227,33 @@ func findNode(node *Node, runes []rune) *Node {
 	return findNode(n, nrunes)
 }
 
+
+func findPath(node *Node, runes []rune) []*Node {
+	if node == nil {
+		return []*Node{}
+	}
+
+	if len(runes) == 0 {
+		return []*Node{node}
+	}
+
+	n, ok := node.Children()[runes[0]]
+	if !ok {
+		return nil
+	}
+
+	var nrunes []rune
+	if len(runes) > 1 {
+		nrunes = runes[1:]
+	} else {
+		nrunes = runes[0:0]
+	}
+
+	return append(findPath(n, nrunes), node)
+}
+
+
+
 func maskruneslice(rs []rune) uint64 {
 	var m uint64
 	for _, r := range rs {
@@ -246,10 +277,7 @@ func collect(node *Node) []string {
 			nodes = append(nodes, c)
 		}
 		if n.term {
-			word := ""
-			for p := n.parent; p.depth != 0; p = p.parent {
-				word = string(p.val) + word
-			}
+			word := n.path
 			keys = append(keys, word)
 		}
 	}
