@@ -246,11 +246,11 @@ func collect(node *Node) []string {
 			nodes = append(nodes, c)
 		}
 		if n.term {
-			word := ""
+			word := make([]rune, n.depth-1)
 			for p := n.parent; p.depth != 0; p = p.parent {
-				word = string(p.val) + word
+				word[p.depth-1] = p.val
 			}
-			keys = append(keys, word)
+			keys = append(keys, string(word))
 		}
 	}
 	return keys
