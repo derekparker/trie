@@ -54,7 +54,6 @@ func (t *Trie) Root() *Node {
 // the caller.
 func (t *Trie) Add(key string, meta interface{}) *Node {
 	t.mu.Lock()
-	defer t.mu.Unlock()
 
 	t.size++
 	runes := []rune(key)
@@ -74,6 +73,8 @@ func (t *Trie) Add(key string, meta interface{}) *Node {
 		node.termCount++
 	}
 	node = node.NewChild(nul, key, 0, meta, true)
+	t.mu.Unlock()
+
 	return node
 }
 
@@ -106,9 +107,7 @@ func (t *Trie) Remove(key string) {
 		rs   = []rune(key)
 		node = findNode(t.Root(), []rune(key))
 	)
-
 	t.mu.Lock()
-	defer t.mu.Unlock()
 
 	t.size--
 	for n := node.Parent(); n != nil; n = n.Parent() {
@@ -119,6 +118,7 @@ func (t *Trie) Remove(key string) {
 			break
 		}
 	}
+	t.mu.Unlock()
 }
 
 // Returns all the keys currently stored in the trie.
