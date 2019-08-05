@@ -359,3 +359,38 @@ func TestSupportChinese(t *testing.T) {
 		}
 	}
 }
+
+func BenchmarkAdd(b *testing.B) {
+	f, err := os.Open("/usr/share/dict/words")
+	if err != nil {
+		b.Fatal("couldn't open bag of words")
+	}
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+	var words []string
+	for scanner.Scan() {
+		word := scanner.Text()
+		words = append(words, word)
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		trie := New()
+		for k := range words {
+			trie.Add(words[k], nil)
+		}
+	}
+}
+
+func BenchmarkAddRemove(b *testing.B) {
+	words := []string{"AAAA1", "AAAA2", "ABAA1", "AABA1", "ABAA2"}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		trie := New()
+		for k := range words {
+			trie.Add(words[k], nil)
+		}
+		for k := range words {
+			trie.Remove(words[k])
+		}
+	}
+}
