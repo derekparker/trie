@@ -8,14 +8,15 @@ package trie
 import "sort"
 
 type Node struct {
-	val      rune
-	path     string
-	term     bool
-	depth    int
-	meta     interface{}
-	mask     uint64
-	parent   *Node
-	children map[rune]*Node
+	val       rune
+	path      string
+	term      bool
+	depth     int
+	meta      interface{}
+	mask      uint64
+	parent    *Node
+	children  map[rune]*Node
+	termCount int
 }
 
 type Trie struct {
@@ -53,6 +54,7 @@ func (t *Trie) Add(key string, meta interface{}) *Node {
 	bitmask := maskruneslice(runes)
 	node := t.root
 	node.mask |= bitmask
+	node.termCount++
 	for i := range runes {
 		r := runes[i]
 		bitmask = maskruneslice(runes[i:])
@@ -62,6 +64,7 @@ func (t *Trie) Add(key string, meta interface{}) *Node {
 		} else {
 			node = node.NewChild(r, "", bitmask, nil, false)
 		}
+		node.termCount++
 	}
 	node = node.NewChild(nul, key, 0, meta, true)
 	return node
@@ -134,7 +137,7 @@ func (t Trie) PrefixSearch(pre string) []string {
 func (parent *Node) NewChild(val rune, path string, bitmask uint64, meta interface{}, term bool) *Node {
 	node := &Node{
 		val:      val,
-		path:    path,
+		path:     path,
 		mask:     bitmask,
 		term:     term,
 		meta:     meta,
@@ -215,33 +218,6 @@ func findNode(node *Node, runes []rune) *Node {
 	return findNode(n, nrunes)
 }
 
-
-func findPath(node *Node, runes []rune) []*Node {
-	if node == nil {
-		return []*Node{}
-	}
-
-	if len(runes) == 0 {
-		return []*Node{node}
-	}
-
-	n, ok := node.Children()[runes[0]]
-	if !ok {
-		return nil
-	}
-
-	var nrunes []rune
-	if len(runes) > 1 {
-		nrunes = runes[1:]
-	} else {
-		nrunes = runes[0:0]
-	}
-
-	return append(findPath(n, nrunes), node)
-}
-
-
-
 func maskruneslice(rs []rune) uint64 {
 	var m uint64
 	for _, r := range rs {
@@ -252,11 +228,12 @@ func maskruneslice(rs []rune) uint64 {
 
 func collect(node *Node) []string {
 	var (
-		keys []string
-		n    *Node
-		i    int
+		n *Node
+		i int
 	)
-	nodes := []*Node{node}
+	keys := make([]string, 0, node.termCount)
+	nodes := make([]*Node, 1, len(node.children))
+	nodes[0] = node
 	for l := len(nodes); l != 0; l = len(nodes) {
 		i = l - 1
 		n = nodes[i]
