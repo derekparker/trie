@@ -7,6 +7,7 @@ package trie
 
 import (
 	"sort"
+	"strings"
 	"sync"
 )
 
@@ -50,6 +51,28 @@ func (t *Trie) Root() *Node {
 // Adds the key to the Trie, including meta data. Meta data
 // is stored as `interface{}` and must be type cast by
 // the caller.
+func (t *Trie) AddWithoutDefer(key string, meta interface{}) *Node {
+	t.mu.Lock()
+	t.size++
+	runes := []rune(key)
+	bitmask := maskruneslice(runes)
+	node := t.root
+	node.mask |= bitmask
+	for i := range runes {
+		r := runes[i]
+		bitmask = maskruneslice(runes[i:])
+		if n, ok := node.children[r]; ok {
+			node = n
+			node.mask |= bitmask
+		} else {
+			node = node.NewChild(r, bitmask, nil, false)
+		}
+	}
+	node = node.NewChild(nul, 0, meta, true)
+	t.mu.Unlock()
+	return node
+}
+
 func (t *Trie) Add(key string, meta interface{}) *Node {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -246,14 +269,23 @@ func collect(node *Node) []string {
 			nodes = append(nodes, c)
 		}
 		if n.term {
-			word := ""
+			word := strings.Builder{}
+			word.Grow(n.depth - 1)
 			for p := n.parent; p.depth != 0; p = p.parent {
-				word = string(p.val) + word
+				word.WriteRune(p.val)
 			}
-			keys = append(keys, word)
+			keys = append(keys, reverse(word.String()))
 		}
 	}
 	return keys
+}
+
+func reverse(s string) string {
+	runes := []rune(s)
+	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
+		runes[i], runes[j] = runes[j], runes[i]
+	}
+	return string(runes)
 }
 
 type potentialSubtree struct {
