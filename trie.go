@@ -123,6 +123,10 @@ func (t *Trie) Remove(key string) {
 
 // Returns all the keys currently stored in the trie.
 func (t *Trie) Keys() []string {
+	if t.size == 0 {
+		return []string{}
+	}
+
 	return t.PrefixSearch("")
 }
 

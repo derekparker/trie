@@ -129,25 +129,34 @@ func TestRemove(t *testing.T) {
 }
 
 func TestTrieKeys(t *testing.T) {
-	trie := New()
-	expected := []string{"bar", "foo"}
-
-	for _, key := range expected {
-		trie.Add(key, nil)
+	tableTests := []struct {
+		name         string
+		expectedKeys []string
+	}{
+		{"Two", []string{"bar", "foo"}},
+		{"One", []string{"foo"}},
+		{"Empty", []string{}},
 	}
 
-	kl := len(trie.Keys())
-	if kl != 2 {
-		t.Errorf("Expected 2 keys, got %d, keys were: %v", kl, trie.Keys())
-	}
+	for _, test := range tableTests {
+		t.Run(test.name, func(t *testing.T) {
+			trie := New()
+			for _, key := range test.expectedKeys {
+				trie.Add(key, nil)
+			}
 
-	keys := trie.Keys()
+			keys := trie.Keys()
+			if len(keys) != len(test.expectedKeys) {
+				t.Errorf("Expected %v keys, got %d, keys were: %v", len(test.expectedKeys), len(keys), trie.Keys())
+			}
 
-	sort.Strings(keys)
-	for i, key := range keys {
-		if key != expected[i] {
-			t.Errorf("Expected %#v, got %#v", expected[i], key)
-		}
+			sort.Strings(keys)
+			for i, key := range keys {
+				if key != test.expectedKeys[i] {
+					t.Errorf("Expected %#v, got %#v", test.expectedKeys[i], key)
+				}
+			}
+		})
 	}
 }
 
