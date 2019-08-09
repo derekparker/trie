@@ -214,7 +214,6 @@ func TestPrefixSearch(t *testing.T) {
 }
 
 func TestFuzzySearch(t *testing.T) {
-	trie := New()
 	setup := []string{
 		"foosball",
 		"football",
@@ -239,18 +238,23 @@ func TestFuzzySearch(t *testing.T) {
 		{"fy", 1},
 		{"fz", 2},
 		{"a", 5},
+		{"", 8},
+		{"zzz", 0},
 	}
 
+	trie := New()
 	for _, key := range setup {
 		trie.Add(key, nil)
 	}
 
 	for _, test := range tests {
-		actual := trie.FuzzySearch(test.partial)
-		if len(actual) != test.length {
-			t.Errorf("Expected len(actual) to == %d, was %d for %s actual was %#v",
-				test.length, len(actual), test.partial, actual)
-		}
+		t.Run(test.partial, func(t *testing.T) {
+			actual := trie.FuzzySearch(test.partial)
+			if len(actual) != test.length {
+				t.Errorf("Expected len(actual) to == %d, was %d for %s actual was %#v",
+					test.length, len(actual), test.partial, actual)
+			}
+		})
 	}
 }
 

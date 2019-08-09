@@ -269,6 +269,10 @@ type potentialSubtree struct {
 }
 
 func fuzzycollect(node *Node, partial []rune) []string {
+	if len(partial) == 0 {
+		return collect(node)
+	}
+
 	var (
 		m    uint64
 		i    int
