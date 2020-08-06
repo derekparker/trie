@@ -107,6 +107,11 @@ func (t *Trie) Remove(key string) {
 		rs   = []rune(key)
 		node = findNode(t.Root(), []rune(key))
 	)
+
+	if node == nil {
+		return
+	}
+
 	t.mu.Lock()
 
 	t.size--
