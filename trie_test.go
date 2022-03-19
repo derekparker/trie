@@ -364,6 +364,11 @@ func TestSupportChinese(t *testing.T) {
 	}
 }
 
+func TestRemoveNonExistingKey(t *testing.T) {
+	trie := New()
+	trie.Remove("bar")
+}
+
 func BenchmarkAdd(b *testing.B) {
 	f, err := os.Open("/usr/share/dict/words")
 	if err != nil {
