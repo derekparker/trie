@@ -213,6 +213,14 @@ func TestPrefixSearch(t *testing.T) {
 	trie.PrefixSearch("fsfsdfasdf")
 }
 
+func TestPrefixSearchEmpty(t *testing.T) {
+	trie := New()
+	keys := trie.PrefixSearch("")
+	if len(keys) != 0 {
+		t.Errorf("Expected 0 keys from empty trie, got: %d", len(keys))
+	}
+}
+
 func TestFuzzySearch(t *testing.T) {
 	setup := []string{
 		"foosball",
@@ -255,6 +263,14 @@ func TestFuzzySearch(t *testing.T) {
 					test.length, len(actual), test.partial, actual)
 			}
 		})
+	}
+}
+
+func TestFuzzySearchEmpty(t *testing.T) {
+	trie := New()
+	keys := trie.FuzzySearch("")
+	if len(keys) != 0 {
+		t.Errorf("Expected 0 keys from empty trie, got: %d", len(keys))
 	}
 }
 
