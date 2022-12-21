@@ -128,6 +128,24 @@ func TestRemove(t *testing.T) {
 	}
 }
 
+func TestRemoveRoot(t *testing.T) {
+	trie := New()
+	trie.Add("root", nil)
+	trie.Remove("root")
+	var ok bool
+	_, ok = trie.Find("root")
+	if ok {
+		t.Error("Expected 0 keys")
+	}
+
+	// Try to write some data after the trie was purged
+	trie.Add("root", nil)
+	_, ok = trie.Find("root")
+	if !ok {
+		t.Error("Expected 1 keys")
+	}
+}
+
 func TestTrieKeys(t *testing.T) {
 	tableTests := []struct {
 		name         string
