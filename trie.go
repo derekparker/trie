@@ -142,14 +142,14 @@ func (t *Trie) Keys() []string {
 }
 
 // Performs a fuzzy search against the keys in the trie.
-func (t Trie) FuzzySearch(pre string) []string {
+func (t *Trie) FuzzySearch(pre string) []string {
 	keys := fuzzycollect(t.Root(), []rune(pre))
 	sort.Sort(ByKeys(keys))
 	return keys
 }
 
 // Performs a prefix search against the keys in the trie.
-func (t Trie) PrefixSearch(pre string) []string {
+func (t *Trie) PrefixSearch(pre string) []string {
 	node := findNode(t.Root(), []rune(pre))
 	if node == nil {
 		return nil
