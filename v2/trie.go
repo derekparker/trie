@@ -132,9 +132,21 @@ func (t *Trie[T]) Remove(key string) {
 	t.mu.Unlock()
 }
 
+// Size get size of all the keys in trie.
+func (t *Trie[T]) Size() int {
+	return t.getSize()
+}
+
+func (t *Trie[T]) getSize() int {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	return t.size
+}
+
 // Keys returns all the keys currently stored in the trie.
 func (t *Trie[T]) Keys() []string {
-	if t.size == 0 {
+	if t.getSize() == 0 {
 		return []string{}
 	}
 
