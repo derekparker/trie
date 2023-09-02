@@ -85,9 +85,13 @@ func (t *Trie) Find(key string) (*Node, bool) {
 	if node == nil {
 		return nil, false
 	}
-
-	node, ok := node.Children()[nul]
-	if !ok || !node.term {
+	
+	node, ok :=node.children[0]
+	//node, ok := node.Children()[nul]
+	if !ok {
+		return nil, false
+	}
+	if !node.term {
 		return nil, false
 	}
 
@@ -239,7 +243,11 @@ func findNode(node *Node, runes []rune) *Node {
 	} else {
 		nrunes = runes[0:0]
 	}
-
+	
+	// optimization
+	if n == nil {
+		return nil
+	}
 	return findNode(n, nrunes)
 }
 
