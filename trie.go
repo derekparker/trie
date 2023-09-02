@@ -44,6 +44,31 @@ func New() *Trie {
 	}
 }
 
+// Free all Nodes of the Trie, renew the root Node.
+func Free(t *Trie) {
+	if t != nil && t.root != nil {
+		for key, node := range t.root.children {
+			node.FreeChild()
+			delete(t.root.children, key)
+		}
+	}
+
+	t.root = &Node{children: make(map[rune]*Node), depth: 0}
+	t.size = 0
+}
+
+// Free the node and it's children.
+func (n *Node) FreeChild() {
+	if n == nil {
+		return
+	}
+
+	for key, node := range n.children {
+		node.FreeChild()
+		delete(n.children, key)
+	}
+}
+
 // Returns the root node for the Trie.
 func (t *Trie) Root() *Node {
 	return t.root
