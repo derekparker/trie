@@ -270,16 +270,12 @@ func maskruneslice(rs []rune) uint64 {
 }
 
 func collect[T any](node *Node[T]) []string {
-	var (
-		n *Node[T]
-		i int
-	)
 	keys := make([]string, 0, node.termCount)
 	nodes := make([]*Node[T], 1, len(node.children)+1)
 	nodes[0] = node
-	for l := len(nodes); l != 0; l = len(nodes) {
-		i = l - 1
-		n = nodes[i]
+	for len(nodes) > 0 {
+		i := len(nodes) - 1
+		n := nodes[i]
 		nodes = nodes[:i]
 		for _, c := range n.children {
 			nodes = append(nodes, c)
