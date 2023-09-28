@@ -8,7 +8,8 @@ import (
 	"testing"
 )
 
-func addFromFile(t *Trie, path string) {
+func createTrieAndAddFromFile[T any](path string, val T) *Trie[T] {
+	t := New[T]()
 	file, err := os.Open(path)
 	if err != nil {
 		log.Fatal(err)
@@ -17,26 +18,27 @@ func addFromFile(t *Trie, path string) {
 	reader := bufio.NewScanner(file)
 
 	for reader.Scan() {
-		t.Add(reader.Text(), nil)
+		t.Add(reader.Text(), val)
 	}
 
 	if reader.Err() != nil {
 		log.Fatal(err)
 	}
+	return t
 }
 
 func TestTrieAdd(t *testing.T) {
-	trie := New()
+	trie := New[int]()
 
 	n := trie.Add("foo", 1)
 
-	if n.Meta().(int) != 1 {
-		t.Errorf("Expected 1, got: %d", n.Meta().(int))
+	if n.meta != 1 {
+		t.Errorf("Expected 1, got: %d", n.meta)
 	}
 }
 
 func TestTrieFind(t *testing.T) {
-	trie := New()
+	trie := New[int]()
 	trie.Add("foo", 1)
 
 	n, ok := trie.Find("foo")
@@ -44,13 +46,13 @@ func TestTrieFind(t *testing.T) {
 		t.Fatal("Could not find node")
 	}
 
-	if n.Meta().(int) != 1 {
-		t.Errorf("Expected 1, got: %d", n.Meta().(int))
+	if n.meta != 1 {
+		t.Errorf("Expected 1, got: %d", n.meta)
 	}
 }
 
 func TestTrieFindMissingWithSubtree(t *testing.T) {
-	trie := New()
+	trie := New[int]()
 	trie.Add("fooish", 1)
 	trie.Add("foobar", 1)
 
@@ -64,7 +66,7 @@ func TestTrieFindMissingWithSubtree(t *testing.T) {
 }
 
 func TestTrieHasKeysWithPrefix(t *testing.T) {
-	trie := New()
+	trie := New[int]()
 	trie.Add("fooish", 1)
 	trie.Add("foobar", 1)
 
@@ -84,7 +86,7 @@ func TestTrieHasKeysWithPrefix(t *testing.T) {
 }
 
 func TestTrieFindMissing(t *testing.T) {
-	trie := New()
+	trie := New[int]()
 
 	n, ok := trie.Find("foo")
 	if ok != false {
@@ -96,11 +98,11 @@ func TestTrieFindMissing(t *testing.T) {
 }
 
 func TestRemove(t *testing.T) {
-	trie := New()
+	trie := New[int]()
 	initial := []string{"football", "foostar", "foosball"}
 
 	for _, key := range initial {
-		trie.Add(key, nil)
+		trie.Add(key, 0)
 	}
 
 	trie.Remove("foosball")
@@ -129,7 +131,7 @@ func TestRemove(t *testing.T) {
 }
 
 func TestRemoveRoot(t *testing.T) {
-	trie := New()
+	trie := New[interface{}]()
 	trie.Add("root", nil)
 	trie.Remove("root")
 	var ok bool
@@ -158,7 +160,7 @@ func TestTrieKeys(t *testing.T) {
 
 	for _, test := range tableTests {
 		t.Run(test.name, func(t *testing.T) {
-			trie := New()
+			trie := New[interface{}]()
 			for _, key := range test.expectedKeys {
 				trie.Add(key, nil)
 			}
@@ -179,7 +181,7 @@ func TestTrieKeys(t *testing.T) {
 }
 
 func TestPrefixSearch(t *testing.T) {
-	trie := New()
+	trie := New[interface{}]()
 	expected := []string{
 		"foo",
 		"foosball",
@@ -232,7 +234,7 @@ func TestPrefixSearch(t *testing.T) {
 }
 
 func TestPrefixSearchEmpty(t *testing.T) {
-	trie := New()
+	trie := New[interface{}]()
 	keys := trie.PrefixSearch("")
 	if len(keys) != 0 {
 		t.Errorf("Expected 0 keys from empty trie, got: %d", len(keys))
@@ -268,7 +270,7 @@ func TestFuzzySearch(t *testing.T) {
 		{"zzz", 0},
 	}
 
-	trie := New()
+	trie := New[interface{}]()
 	for _, key := range setup {
 		trie.Add(key, nil)
 	}
@@ -285,7 +287,7 @@ func TestFuzzySearch(t *testing.T) {
 }
 
 func TestFuzzySearchEmpty(t *testing.T) {
-	trie := New()
+	trie := New[interface{}]()
 	keys := trie.FuzzySearch("")
 	if len(keys) != 0 {
 		t.Errorf("Expected 0 keys from empty trie, got: %d", len(keys))
@@ -293,7 +295,7 @@ func TestFuzzySearchEmpty(t *testing.T) {
 }
 
 func TestFuzzySearchSorting(t *testing.T) {
-	trie := New()
+	trie := New[interface{}]()
 	setup := []string{
 		"foosball",
 		"football",
@@ -324,7 +326,7 @@ func TestFuzzySearchSorting(t *testing.T) {
 }
 
 func BenchmarkTieKeys(b *testing.B) {
-	trie := New()
+	trie := New[interface{}]()
 	keys := []string{"bar", "foo", "baz", "bur", "zum", "burzum", "bark", "barcelona", "football", "foosball", "footlocker"}
 
 	for _, key := range keys {
@@ -338,8 +340,7 @@ func BenchmarkTieKeys(b *testing.B) {
 }
 
 func BenchmarkPrefixSearch(b *testing.B) {
-	trie := New()
-	addFromFile(trie, "/usr/share/dict/words")
+	trie := createTrieAndAddFromFile[interface{}]("/usr/share/dict/words", nil)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -348,8 +349,7 @@ func BenchmarkPrefixSearch(b *testing.B) {
 }
 
 func BenchmarkFuzzySearch(b *testing.B) {
-	trie := New()
-	addFromFile(trie, "/usr/share/dict/words")
+	trie := createTrieAndAddFromFile[interface{}]("/usr/share/dict/words", nil)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -359,13 +359,12 @@ func BenchmarkFuzzySearch(b *testing.B) {
 
 func BenchmarkBuildTree(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		trie := New()
-		addFromFile(trie, "/usr/share/dict/words")
+		createTrieAndAddFromFile[interface{}]("/usr/share/dict/words", nil)
 	}
 }
 
 func TestSupportChinese(t *testing.T) {
-	trie := New()
+	trie := New[interface{}]()
 	expected := []string{"苹果 沂水县", "苹果", "大蒜", "大豆"}
 
 	for _, key := range expected {
@@ -403,7 +402,9 @@ func BenchmarkAdd(b *testing.B) {
 	if err != nil {
 		b.Fatal("couldn't open bag of words")
 	}
-	defer f.Close()
+	defer func(f *os.File) {
+		_ = f.Close()
+	}(f)
 	scanner := bufio.NewScanner(f)
 	var words []string
 	for scanner.Scan() {
@@ -412,7 +413,7 @@ func BenchmarkAdd(b *testing.B) {
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		trie := New()
+		trie := New[interface{}]()
 		for k := range words {
 			trie.Add(words[k], nil)
 		}
@@ -423,7 +424,7 @@ func BenchmarkAddRemove(b *testing.B) {
 	words := []string{"AAAA1", "AAAA2", "ABAA1", "AABA1", "ABAA2"}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		trie := New()
+		trie := New[interface{}]()
 		for k := range words {
 			trie.Add(words[k], nil)
 		}
