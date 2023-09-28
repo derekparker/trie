@@ -309,7 +309,7 @@ func fuzzycollect[T any](node *Node[T], partial []rune) []string {
 		keys []string
 	)
 
-	potential := []potentialSubtree[T]{potentialSubtree[T]{node: node, idx: 0}}
+	potential := []potentialSubtree[T]{{node: node, idx: 0}}
 	for l := len(potential); l > 0; l = len(potential) {
 		i = l - 1
 		p = potential[i]
