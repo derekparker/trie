@@ -121,8 +121,7 @@ func (t *Trie[T]) Remove(key string) {
 		}
 
 		if len(n.Children()) > 1 {
-			r := rs[n.depth]
-			n.RemoveChild(r)
+			n.RemoveChild(rs[n.depth])
 			break
 		}
 	}
