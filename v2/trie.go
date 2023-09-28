@@ -302,19 +302,14 @@ func fuzzycollect[T any](node *Node[T], partial []rune) []string {
 		return collect(node)
 	}
 
-	var (
-		m    uint64
-		i    int
-		p    potentialSubtree[T]
-		keys []string
-	)
-
+	var keys []string
+	
 	potential := []potentialSubtree[T]{{node: node, idx: 0}}
-	for l := len(potential); l > 0; l = len(potential) {
-		i = l - 1
-		p = potential[i]
+	for len(potential) > 0 {
+		i := len(potential) - 1
+		p := potential[i]
 		potential = potential[:i]
-		m = maskruneslice(partial[p.idx:])
+		m := maskruneslice(partial[p.idx:])
 		if (p.node.mask & m) != m {
 			continue
 		}
