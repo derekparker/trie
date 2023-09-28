@@ -293,13 +293,11 @@ type potentialSubtree[T any] struct {
 	node *Node[T]
 }
 
-func fuzzycollect[T any](node *Node[T], partial []rune) []string {
+func fuzzycollect[T any](node *Node[T], partial []rune) (keys []string) {
 	if len(partial) == 0 {
 		return collect(node)
 	}
 
-	var keys []string
-	
 	potential := []potentialSubtree[T]{{node: node, idx: 0}}
 	for len(potential) > 0 {
 		i := len(potential) - 1
