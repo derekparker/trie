@@ -64,11 +64,11 @@ func (t *Trie[T]) Add(key string, meta T) *node[T] {
 			nd = n
 			nd.mask |= bitmask
 		} else {
-			nd = nd.NewEmptyChild(r, "", bitmask)
+			nd = nd.newEmptyChild(r, "", bitmask)
 		}
 		nd.termCount++
 	}
-	nd = nd.NewChild(nul, key, 0, meta, true)
+	nd = nd.newChild(nul, key, 0, meta, true)
 
 	return nd
 }
@@ -123,7 +123,7 @@ func (t *Trie[T]) Remove(key string) {
 		}
 
 		if len(n.children) > 1 {
-			n.RemoveChild(rs[n.depth])
+			n.removeChild(rs[n.depth])
 			break
 		}
 	}
@@ -164,8 +164,8 @@ func (t *Trie[T]) PrefixSearch(pre string) []string {
 	return collect(nd)
 }
 
-// NewChild creates and returns a pointer to a new child for the node.
-func (n *node[T]) NewChild(val rune, path string, bitmask uint64, meta T, term bool) *node[T] {
+// newChild creates and returns a pointer to a new child for the node.
+func (n *node[T]) newChild(val rune, path string, bitmask uint64, meta T, term bool) *node[T] {
 	node := &node[T]{
 		val:      val,
 		path:     path,
@@ -181,8 +181,8 @@ func (n *node[T]) NewChild(val rune, path string, bitmask uint64, meta T, term b
 	return node
 }
 
-// NewEmptyChild creates and returns a pointer to a new child for the node.
-func (n *node[T]) NewEmptyChild(val rune, path string, bitmask uint64) *node[T] {
+// newEmptyChild creates and returns a pointer to a new child for the node.
+func (n *node[T]) newEmptyChild(val rune, path string, bitmask uint64) *node[T] {
 	node := &node[T]{
 		val:      val,
 		path:     path,
@@ -196,7 +196,7 @@ func (n *node[T]) NewEmptyChild(val rune, path string, bitmask uint64) *node[T] 
 	return node
 }
 
-func (n *node[T]) RemoveChild(r rune) {
+func (n *node[T]) removeChild(r rune) {
 	delete(n.children, r)
 	for nd := n.parent; nd != nil; nd = nd.parent {
 		nd.mask ^= nd.mask
