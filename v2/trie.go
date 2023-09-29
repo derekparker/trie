@@ -84,7 +84,7 @@ func (t *Trie[T]) Find(key string) (*node[T], bool) {
 		return nil, false
 	}
 
-	nd, ok := nd.Children()[nul]
+	nd, ok := nd.children[nul]
 	if !ok || !nd.term {
 		return nil, false
 	}
@@ -116,13 +116,13 @@ func (t *Trie[T]) Remove(key string) {
 	}
 
 	t.size--
-	for n := nd.Parent(); n != nil; n = n.Parent() {
+	for n := nd.parent; n != nil; n = n.parent {
 		if n == t.root {
 			t.root = &node[T]{children: make(map[rune]*node[T])}
 			break
 		}
 
-		if len(n.Children()) > 1 {
+		if len(n.children) > 1 {
 			n.RemoveChild(rs[n.depth])
 			break
 		}
@@ -131,6 +131,9 @@ func (t *Trie[T]) Remove(key string) {
 
 // Keys returns all the keys currently stored in the trie.
 func (t *Trie[T]) Keys() []string {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
 	if t.size == 0 {
 		return []string{}
 	}
@@ -140,6 +143,9 @@ func (t *Trie[T]) Keys() []string {
 
 // FuzzySearch performs a fuzzy search against the keys in the trie.
 func (t *Trie[T]) FuzzySearch(pre string) []string {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
 	keys := fuzzycollect(t.root, []rune(pre))
 	sort.Sort(ByKeys(keys))
 	return keys
@@ -147,6 +153,9 @@ func (t *Trie[T]) FuzzySearch(pre string) []string {
 
 // PrefixSearch performs a prefix search against the keys in the trie.
 func (t *Trie[T]) PrefixSearch(pre string) []string {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
 	nd := findNode(t.root, []rune(pre))
 	if nd == nil {
 		return nil
@@ -198,42 +207,6 @@ func (n *node[T]) RemoveChild(r rune) {
 	}
 }
 
-// Parent returns the parent of this node.
-func (n *node[T]) Parent() *node[T] {
-	return n.parent
-}
-
-// Meta returns the meta information of this node.
-func (n *node[T]) Meta() T {
-	return n.meta
-}
-
-// Children returns the children of this node.
-func (n *node[T]) Children() map[rune]*node[T] {
-	return n.children
-}
-
-// Terminating returns true if this node terminates an entry in the Trie.
-func (n *node[T]) Terminating() bool {
-	return n.term
-}
-
-// Val returns the rune value of the Node.
-func (n *node[T]) Val() rune {
-	return n.val
-}
-
-// Depth returns this nodes depth in the tree.
-func (n *node[T]) Depth() int {
-	return n.depth
-}
-
-// Mask returns a uint64 representing the current
-// mask of this node.
-func (n *node[T]) Mask() uint64 {
-	return n.mask
-}
-
 func findNode[T any](nd *node[T], runes []rune) *node[T] {
 	if nd == nil {
 		return nil
@@ -243,7 +216,7 @@ func findNode[T any](nd *node[T], runes []rune) *node[T] {
 		return nd
 	}
 
-	n, ok := nd.Children()[runes[0]]
+	n, ok := nd.children[runes[0]]
 	if !ok {
 		return nil
 	}

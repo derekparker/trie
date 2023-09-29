@@ -32,8 +32,8 @@ func TestTrieAdd(t *testing.T) {
 
 	n := trie.Add("foo", 1)
 
-	if n.Meta() != 1 {
-		t.Errorf("Expected 1, got: %d", n.Meta())
+	if n.meta != 1 {
+		t.Errorf("Expected 1, got: %d", n.meta)
 	}
 }
 
@@ -46,8 +46,8 @@ func TestTrieFind(t *testing.T) {
 		t.Fatal("Could not find node")
 	}
 
-	if n.Meta() != 1 {
-		t.Errorf("Expected 1, got: %d", n.Meta())
+	if n.meta != 1 {
+		t.Errorf("Expected 1, got: %d", n.meta)
 	}
 }
 
