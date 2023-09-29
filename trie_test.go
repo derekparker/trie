@@ -412,24 +412,8 @@ func BenchmarkAdd(b *testing.B) {
 		words = append(words, word)
 	}
 	b.ResetTimer()
+	trie := New[interface{}]()
 	for i := 0; i < b.N; i++ {
-		trie := New[interface{}]()
-		for k := range words {
-			trie.Add(words[k], nil)
-		}
-	}
-}
-
-func BenchmarkAddRemove(b *testing.B) {
-	words := []string{"AAAA1", "AAAA2", "ABAA1", "AABA1", "ABAA2"}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		trie := New[interface{}]()
-		for k := range words {
-			trie.Add(words[k], nil)
-		}
-		for k := range words {
-			trie.Remove(words[k])
-		}
+		trie.Add(words[i%len(words)], nil)
 	}
 }
