@@ -22,6 +22,7 @@ type node[T any] struct {
 	termCount int
 }
 
+// Trie is a data structure that stores a set of strings.
 type Trie[T any] struct {
 	mu   sync.RWMutex
 	root *node[T]
@@ -273,6 +274,7 @@ func fuzzycollect[T any](nd *node[T], partial []rune) (keys []string) {
 		i := len(potential) - 1
 		p := potential[i]
 		potential = potential[:i]
+		// TODO(derekparker): This should be cachable.
 		m := maskruneslice(partial[p.idx:])
 		if (p.node.mask & m) != m {
 			continue
