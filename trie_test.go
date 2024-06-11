@@ -56,8 +56,9 @@ func TestTrieAdd2(t *testing.T) {
 func TestTrieFind(t *testing.T) {
 	trie := New[int]()
 	trie.Add("foo", 1)
+	trie.Add("foobar", 1)
 
-	n, ok := trie.Find("foo")
+	n, ok := trie.Find("foobar")
 	if ok != true {
 		t.Fatal("Could not find node")
 	}

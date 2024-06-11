@@ -78,16 +78,15 @@ func (t *Trie[T]) Add(key string, meta T) *node[T] {
 	for i := 0; i < len(children); i++ {
 		c := children[i]
 		for i, r := range c.rpath {
-			if i <= len(key) && r == runes[i] {
+			if i < len(runes) && r == runes[i] {
 				runes = runes[i:]
 			}
 		}
 
-
 		if len(runes) > 0 && len(c.schildren) > 0 {
 			children = append(children, c.schildren...)
 		} else {
-			return c.newChild(nul, key, bitmask, meta, true)
+			return c.newChild(nul, string(runes), bitmask, meta, true)
 		}
 	}
 
