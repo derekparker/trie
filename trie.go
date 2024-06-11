@@ -12,6 +12,8 @@ import (
 
 type node[T any] struct {
 	val       rune
+	rpath     []rune
+	schildren []*node[T]
 	path      string
 	term      bool
 	depth     int
@@ -37,6 +39,14 @@ func (a ByKeys) Less(i, j int) bool { return len(a[i]) < len(a[j]) }
 
 const nul = 0x0
 
+// TODO: Optimize.
+// It should be possible to optimize this by not storing every single
+// node in the path to the key. Instead, we could store the path in
+// path up to a split point, and then store the rest of the path in
+// the child node. This would reduce the amount of memory required.
+// We could also slice the original input as the path segments to not
+// allocate more slices.
+
 // New creates a new Trie with an initialized root Node.
 func New[T any]() *Trie[T] {
 	return &Trie[T]{
@@ -45,33 +55,43 @@ func New[T any]() *Trie[T] {
 	}
 }
 
-// Add adds the key to the Trie, including meta data. Meta data
-// is stored as `interface{}` and must be type cast by
-// the caller.
+// Add adds the key to the Trie and stores the meta data associated with it.
 func (t *Trie[T]) Add(key string, meta T) *node[T] {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
+	if nd, ok := t.find(key); ok {
+		nd.meta = meta
+		return nd
+	}
+
 	t.size++
+
 	runes := []rune(key)
 	bitmask := maskruneslice(runes)
-	nd := t.root
-	nd.mask |= bitmask
-	nd.termCount++
-	for i := range runes {
-		r := runes[i]
-		bitmask = maskruneslice(runes[i:])
-		if n, ok := nd.children[r]; ok {
-			nd = n
-			nd.mask |= bitmask
-		} else {
-			nd = nd.newEmptyChild(r, "", bitmask)
-		}
-		nd.termCount++
-	}
-	nd = nd.newChild(nul, key, 0, meta, true)
 
-	return nd
+	if t.size == 1 {
+		return t.root.newChild(nul, key, bitmask, meta, true)
+	}
+
+	children := t.root.schildren
+	for i := 0; i < len(children); i++ {
+		c := children[i]
+		for i, r := range c.rpath {
+			if i <= len(key) && r == runes[i] {
+				runes = runes[i:]
+			}
+		}
+
+
+		if len(runes) > 0 && len(c.schildren) > 0 {
+			children = append(children, c.schildren...)
+		} else {
+			return c.newChild(nul, key, bitmask, meta, true)
+		}
+	}
+
+	return nil
 }
 
 // Find finds and returns meta data associated
@@ -79,18 +99,33 @@ func (t *Trie[T]) Add(key string, meta T) *node[T] {
 func (t *Trie[T]) Find(key string) (*node[T], bool) {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
+	return t.find(key)
+}
 
-	nd := findNode(t.root, []rune(key))
-	if nd == nil {
-		return nil, false
+// find finds and returns meta data associated with `key`.
+// Caller should always acquire `t.mu` before calling.
+func (t *Trie[T]) find(key string) (*node[T], bool) {
+	potential := t.root.schildren
+
+	i := 0
+	for len(potential) > 0 {
+		n := potential[i]
+		potential = potential[:i]
+
+		i++
+
+		if n.path == key {
+			return n, true
+		}
+		if len(key) == 0 {
+			continue
+		}
+		if n.val == rune(key[0]) {
+			potential = append(potential, n.schildren...)
+		}
 	}
 
-	nd, ok := nd.children[nul]
-	if !ok || !nd.term {
-		return nil, false
-	}
-
-	return nd, true
+	return nil, false
 }
 
 func (t *Trie[T]) HasKeysWithPrefix(key string) bool {
@@ -169,6 +204,7 @@ func (t *Trie[T]) PrefixSearch(pre string) []string {
 func (n *node[T]) newChild(val rune, path string, bitmask uint64, meta T, term bool) *node[T] {
 	node := &node[T]{
 		val:      val,
+		rpath:    []rune(path),
 		path:     path,
 		mask:     bitmask,
 		term:     term,
@@ -178,6 +214,7 @@ func (n *node[T]) newChild(val rune, path string, bitmask uint64, meta T, term b
 		depth:    n.depth + 1,
 	}
 	n.children[node.val] = node
+	n.schildren = append(n.schildren, node)
 	n.mask |= bitmask
 	return node
 }
@@ -214,6 +251,10 @@ func findNode[T any](nd *node[T], runes []rune) *node[T] {
 	}
 
 	if len(runes) == 0 {
+		return nd
+	}
+
+	if string(runes) == string(nd.rpath) {
 		return nd
 	}
 

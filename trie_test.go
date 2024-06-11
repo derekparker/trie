@@ -37,6 +37,22 @@ func TestTrieAdd(t *testing.T) {
 	}
 }
 
+func TestTrieAdd2(t *testing.T) {
+	trie := New[int]()
+
+	n := trie.Add("foo", 1)
+	n = trie.Add("hello", 2)
+	n = trie.Add("foobar", 3)
+
+	if n == nil {
+		t.Fatal("No node returned on insert")
+	}
+
+	if n.meta != 3 {
+		t.Errorf("Expected 3, got: %d", n.meta)
+	}
+}
+
 func TestTrieFind(t *testing.T) {
 	trie := New[int]()
 	trie.Add("foo", 1)
