@@ -88,6 +88,7 @@ func (t *Trie[T]) Add(key string, meta T) *node[T] {
 		} else {
 			return c.newChild(nul, string(runes), bitmask, meta, true)
 		}
+
 	}
 
 	return nil
