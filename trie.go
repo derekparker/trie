@@ -208,6 +208,11 @@ func (n *node[T]) removeChild(r rune) {
 	}
 }
 
+// Val returns the value of the node.
+func (n *node[T]) Val() T {
+	return n.meta
+}
+
 func findNode[T any](nd *node[T], runes []rune) *node[T] {
 	if nd == nil {
 		return nil

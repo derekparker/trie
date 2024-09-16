@@ -46,7 +46,7 @@ func TestTrieFind(t *testing.T) {
 		t.Fatal("Could not find node")
 	}
 
-	if n.meta != 1 {
+	if n.Val() != 1 {
 		t.Errorf("Expected 1, got: %d", n.meta)
 	}
 }
