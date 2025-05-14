@@ -262,27 +262,20 @@ func maskruneslice(rs []rune) uint64 {
 	}
 
 	// Loop unrolling for better performance
-	i := 0
-	for ; i < length-7; i += 8 {
+	i := length - 1
+	for ; i >= 7; i -= 8 {
 		m |= uint64(1) << uint64(rs[i]-'a')
-		m |= uint64(1) << uint64(rs[i+1]-'a')
-		m |= uint64(1) << uint64(rs[i+2]-'a')
-		m |= uint64(1) << uint64(rs[i+3]-'a')
-		m |= uint64(1) << uint64(rs[i+4]-'a')
-		m |= uint64(1) << uint64(rs[i+5]-'a')
-		m |= uint64(1) << uint64(rs[i+6]-'a')
-		m |= uint64(1) << uint64(rs[i+7]-'a')
-	}
-
-	for ; i < length-3; i += 4 {
-		m |= uint64(1) << uint64(rs[i]-'a')
-		m |= uint64(1) << uint64(rs[i+1]-'a')
-		m |= uint64(1) << uint64(rs[i+2]-'a')
-		m |= uint64(1) << uint64(rs[i+3]-'a')
+		m |= uint64(1) << uint64(rs[i-1]-'a')
+		m |= uint64(1) << uint64(rs[i-2]-'a')
+		m |= uint64(1) << uint64(rs[i-3]-'a')
+		m |= uint64(1) << uint64(rs[i-4]-'a')
+		m |= uint64(1) << uint64(rs[i-5]-'a')
+		m |= uint64(1) << uint64(rs[i-6]-'a')
+		m |= uint64(1) << uint64(rs[i-7]-'a')
 	}
 
 	// Handle remaining elements
-	for ; i < length; i++ {
+	for ; i >= 0; i-- {
 		m |= uint64(1) << uint64(rs[i]-'a')
 	}
 
