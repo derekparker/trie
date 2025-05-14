@@ -237,11 +237,55 @@ func findNode[T any](nd *node[T], runes []rune) *node[T] {
 	return findNode(n, nrunes)
 }
 
+// maskruneslice creates a bit mask where each character in the input sets a bit
+// corresponding to its position relative to 'a'.
+// This optimized version uses loop unrolling for better performance.
 func maskruneslice(rs []rune) uint64 {
 	var m uint64
-	for _, r := range rs {
-		m |= uint64(1) << uint64(r-'a')
+	length := len(rs)
+
+	// Fast path for empty slice
+	if length == 0 {
+		return 0
 	}
+
+	// Fast path for single character
+	if length == 1 {
+		return uint64(1) << uint64(rs[0]-'a')
+	}
+
+	if length < 8 {
+		for _, r := range rs {
+			m |= uint64(1) << uint64(r-'a')
+		}
+		return m
+	}
+
+	// Loop unrolling for better performance
+	i := 0
+	for ; i < length-7; i += 8 {
+		m |= uint64(1) << uint64(rs[i]-'a')
+		m |= uint64(1) << uint64(rs[i+1]-'a')
+		m |= uint64(1) << uint64(rs[i+2]-'a')
+		m |= uint64(1) << uint64(rs[i+3]-'a')
+		m |= uint64(1) << uint64(rs[i+4]-'a')
+		m |= uint64(1) << uint64(rs[i+5]-'a')
+		m |= uint64(1) << uint64(rs[i+6]-'a')
+		m |= uint64(1) << uint64(rs[i+7]-'a')
+	}
+
+	for ; i < length-3; i += 4 {
+		m |= uint64(1) << uint64(rs[i]-'a')
+		m |= uint64(1) << uint64(rs[i+1]-'a')
+		m |= uint64(1) << uint64(rs[i+2]-'a')
+		m |= uint64(1) << uint64(rs[i+3]-'a')
+	}
+
+	// Handle remaining elements
+	for ; i < length; i++ {
+		m |= uint64(1) << uint64(rs[i]-'a')
+	}
+
 	return m
 }
 
