@@ -288,12 +288,41 @@ func findNode[T any](nd *node[T], runes []rune) *node[T] {
 	return findNode(n, nrunes)
 }
 
+// maskruneslice creates a bitmask for the given runes.
+// Optimized to eliminate bounds checking and enable vectorization.
+//
+//go:inline
 func maskruneslice(rs []rune) uint64 {
-	var m uint64
-	for _, r := range rs {
-		m |= uint64(1) << uint64(r-'a')
+	n := len(rs)
+	if n == 0 {
+		return 0
 	}
-	return m
+
+	var m0, m1, m2, m3 uint64
+
+	i := 0
+	for n-i >= 4 {
+		r0 := rs[i+0]
+		r1 := rs[i+1]
+		r2 := rs[i+2]
+		r3 := rs[i+3]
+
+		m0 |= uint64(1) << uint64(r0-'a')
+		m1 |= uint64(1) << uint64(r1-'a')
+		m2 |= uint64(1) << uint64(r2-'a')
+		m3 |= uint64(1) << uint64(r3-'a')
+
+		i += 4
+	}
+
+	// Handle remaining elements
+	for i < n {
+		m0 |= uint64(1) << uint64(rs[i]-'a')
+		i++
+	}
+
+	// Combine all accumulators
+	return m0 | m1 | m2 | m3
 }
 
 func collect[T any](nd *node[T]) []string {
