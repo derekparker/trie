@@ -57,7 +57,7 @@ func TestTrieAll(t *testing.T) {
 	trie.Add("baz", 3)
 	trie.Add("bur", 4)
 
-	for key, value := range trie.All() {
+	for key, value := range trie.AllKeyValuesIter() {
 		switch key {
 		case "foo":
 			if value != 1 {
@@ -77,6 +77,154 @@ func TestTrieAll(t *testing.T) {
 			}
 		default:
 			t.Errorf("Unexpected key: %s", key)
+		}
+	}
+}
+
+func TestAllKeyValues(t *testing.T) {
+	trie := New[int]()
+
+	trie.Add("foo", 1)
+	trie.Add("bar", 2)
+	trie.Add("baz", 3)
+	trie.Add("bur", 4)
+
+	kvMap := trie.AllKeyValues()
+
+	// Check that we got all 4 entries
+	if len(kvMap) != 4 {
+		t.Errorf("Expected 4 entries, got: %d", len(kvMap))
+	}
+
+	// Check each key-value pair
+	expectedPairs := map[string]int{
+		"foo": 1,
+		"bar": 2,
+		"baz": 3,
+		"bur": 4,
+	}
+
+	for key, expectedValue := range expectedPairs {
+		if value, ok := kvMap[key]; !ok {
+			t.Errorf("Key %s not found in result", key)
+		} else if value != expectedValue {
+			t.Errorf("For key %s: expected %d, got %d", key, expectedValue, value)
+		}
+	}
+
+	// Check for unexpected keys
+	for key := range kvMap {
+		if _, ok := expectedPairs[key]; !ok {
+			t.Errorf("Unexpected key in result: %s", key)
+		}
+	}
+}
+
+func TestAllKeyValuesEmpty(t *testing.T) {
+	trie := New[int]()
+
+	kvMap := trie.AllKeyValues()
+
+	// Check that we got an empty map
+	if len(kvMap) != 0 {
+		t.Errorf("Expected empty map, got %d entries", len(kvMap))
+	}
+}
+
+func TestAllKeyValuesWithDifferentValues(t *testing.T) {
+	trie := New[string]()
+
+	// Add keys with specific string values to verify correct mapping
+	trie.Add("apple", "fruit")
+	trie.Add("application", "software")
+	trie.Add("apply", "verb")
+	trie.Add("banana", "yellow fruit")
+	trie.Add("bandana", "cloth")
+	trie.Add("band", "music group")
+
+	kvMap := trie.AllKeyValues()
+
+	// Check that we got all 6 entries
+	if len(kvMap) != 6 {
+		t.Errorf("Expected 6 entries, got: %d", len(kvMap))
+	}
+
+	// Check each key-value pair for exact match
+	expectedPairs := map[string]string{
+		"apple":       "fruit",
+		"application": "software",
+		"apply":       "verb",
+		"banana":      "yellow fruit",
+		"bandana":     "cloth",
+		"band":        "music group",
+	}
+
+	for key, expectedValue := range expectedPairs {
+		if value, ok := kvMap[key]; !ok {
+			t.Errorf("Key %s not found in result", key)
+		} else if value != expectedValue {
+			t.Errorf("For key %s: expected '%s', got '%s'", key, expectedValue, value)
+		}
+	}
+
+	// Check for unexpected keys
+	for key := range kvMap {
+		if _, ok := expectedPairs[key]; !ok {
+			t.Errorf("Unexpected key in result: %s", key)
+		}
+	}
+}
+
+func TestAllKeyValuesAndIteratorConsistency(t *testing.T) {
+	trie := New[int]()
+
+	// Add various keys with values
+	testData := map[string]int{
+		"apple":       1,
+		"application": 2,
+		"apply":       3,
+		"banana":      4,
+		"band":        5,
+		"bandana":     6,
+		"foo":         7,
+		"foobar":      8,
+		"foobaz":      9,
+		"bar":         10,
+	}
+
+	for key, value := range testData {
+		trie.Add(key, value)
+	}
+
+	// Get results from AllKeyValues
+	mapResult := trie.AllKeyValues()
+
+	// Collect results from AllKeyValuesIter
+	iterResult := make(map[string]int)
+	for key, value := range trie.AllKeyValuesIter() {
+		iterResult[key] = value
+	}
+
+	// Check that both have the same number of entries
+	if len(mapResult) != len(iterResult) {
+		t.Errorf("Length mismatch: AllKeyValues returned %d entries, AllKeyValuesIter returned %d entries",
+			len(mapResult), len(iterResult))
+	}
+
+	// Check that all entries match
+	for key, mapValue := range mapResult {
+		if iterValue, ok := iterResult[key]; !ok {
+			t.Errorf("Key %s found in AllKeyValues but not in AllKeyValuesIter", key)
+		} else if mapValue != iterValue {
+			t.Errorf("Value mismatch for key %s: AllKeyValues=%d, AllKeyValuesIter=%d",
+				key, mapValue, iterValue)
+		}
+	}
+
+	// Check the reverse - all iterator entries are in the map
+	for key := range iterResult {
+		if _, ok := mapResult[key]; !ok {
+			t.Errorf("Key %s found in AllKeyValuesIter but not in AllKeyValues", key)
 		}
 	}
 }
@@ -414,6 +562,27 @@ func BenchmarkFuzzySearch(b *testing.B) {
 func BenchmarkBuildTree(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		createTrieAndAddFromFile[interface{}]("/usr/share/dict/words", nil)
+	}
+}
+
+func BenchmarkAllKeyValues(b *testing.B) {
+	trie := createTrieAndAddFromFile[interface{}]("fixtures/test.txt", nil)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = trie.AllKeyValues()
+	}
+}
+
+func BenchmarkAllKeyValuesIter(b *testing.B) {
+	trie := createTrieAndAddFromFile[interface{}]("fixtures/test.txt", nil)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		count := 0
+		for range trie.AllKeyValuesIter() {
+			count++
+		}
 	}
 }
 

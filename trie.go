@@ -68,31 +68,21 @@ func New[T any]() *Trie[T] {
 	}
 }
 
-// All returns a sequence of all key-value pairs in the trie.
-func (t *Trie[T]) All() iter.Seq2[string, T] {
-	return func(yield func(string, T) bool) {
-		childrenCount := 0
-		if t.root.children != nil {
-			childrenCount = len(t.root.children)
-		}
-		nodes := make([]*node[T], 1, childrenCount+1)
-		nodes[0] = t.root
-		for len(nodes) > 0 {
-			i := len(nodes) - 1
-			n := nodes[i]
-			nodes = nodes[:i]
-			if n.children != nil {
-				for _, c := range n.children {
-					nodes = append(nodes, c)
-				}
-			}
-			if n.path != nil {
-				if !yield(*n.path, n.meta) {
-					return
-				}
-			}
-		}
+// AllKeyValuesIter returns a sequence of all key-value pairs in the trie.
+func (t *Trie[T]) AllKeyValuesIter() iter.Seq2[string, T] {
+	return collectIter(t.root)
+}
+
+// AllKeyValues returns a map of all key-value pairs in the trie.
+func (t *Trie[T]) AllKeyValues() map[string]T {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
+	result := make(map[string]T, t.size)
+	for key, value := range collectIter(t.root) {
+		result[key] = value
 	}
+	return result
 }
 
 // Add adds the key to the Trie, including meta data.
@@ -217,7 +207,11 @@ func (t *Trie[T]) PrefixSearch(pre string) []string {
 		return nil
 	}
 
-	return collect(nd)
+	keys := make([]string, 0, nd.termCount)
+	for key := range collectIter(nd) {
+		keys = append(keys, key)
+	}
+	return keys
 }
 
 // newChild creates and returns a pointer to a new child for the node.
@@ -358,28 +352,31 @@ func maskruneslice(rs []rune) uint64 {
 	return m0 | m1 | m2 | m3
 }
 
-func collect[T any](nd *node[T]) []string {
-	keys := make([]string, 0, nd.termCount)
-	childrenCount := 0
-	if nd.children != nil {
-		childrenCount = len(nd.children)
-	}
-	nodes := make([]*node[T], 1, childrenCount+1)
-	nodes[0] = nd
-	for len(nodes) > 0 {
-		i := len(nodes) - 1
-		n := nodes[i]
-		nodes = nodes[:i]
-		if n.children != nil {
-			for _, c := range n.children {
-				nodes = append(nodes, c)
+// collectIter returns an iterator over all key-value pairs starting from the given node
+func collectIter[T any](nd *node[T]) iter.Seq2[string, T] {
+	return func(yield func(string, T) bool) {
+		childrenCount := 0
+		if nd.children != nil {
+			childrenCount = len(nd.children)
+		}
+		nodes := make([]*node[T], 1, childrenCount+1)
+		nodes[0] = nd
+		for len(nodes) > 0 {
+			i := len(nodes) - 1
+			n := nodes[i]
+			nodes = nodes[:i]
+			if n.children != nil {
+				for _, c := range n.children {
+					nodes = append(nodes, c)
+				}
+			}
+			if n.path != nil {
+				if !yield(*n.path, n.meta) {
+					return
+				}
 			}
 		}
-		if n.path != nil {
-			keys = append(keys, *n.path)
-		}
 	}
-	return keys
 }
 
 type potentialSubtree[T any] struct {
@@ -389,7 +386,11 @@ type potentialSubtree[T any] struct {
 
 func fuzzycollect[T any](nd *node[T], partial []rune) []string {
 	if len(partial) == 0 {
-		return collect(nd)
+		keys := make([]string, 0, nd.termCount)
+		for key := range collectIter(nd) {
+			keys = append(keys, key)
+		}
+		return keys
 	}
 
 	// Get pooled slices to minimize allocations
