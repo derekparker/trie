@@ -11,15 +11,17 @@ import (
 )
 
 type node[T any] struct {
+	mask     uint64
+	parent   *node[T]
+	children map[rune]*node[T]
+	meta     T
+	path     *string // pointer to avoid storing empty strings
+
 	val       rune
-	path      string
-	term      bool
-	depth     int
-	meta      T
-	mask      uint64
-	parent    *node[T]
-	children  map[rune]*node[T]
-	termCount int
+	depth     int32
+	termCount int32
+
+	term bool
 }
 
 // Trie is a data structure that stores a set of strings.
@@ -37,17 +39,36 @@ func (a ByKeys) Less(i, j int) bool { return len(a[i]) < len(a[j]) }
 
 const nul = 0x0
 
+// Pool for reusing node slices in collection operations
+var nodeSlicePool = sync.Pool{
+	New: func() interface{} {
+		return make([]*node[any], 0, 64)
+	},
+}
+
+// Pool for reusing string slices in collection operations
+var stringSlicePool = sync.Pool{
+	New: func() interface{} {
+		return make([]string, 0, 64)
+	},
+}
+
+// Pool for FuzzySearch potentialSubtree slices
+var potentialSubtreePool = sync.Pool{
+	New: func() interface{} {
+		return make([]potentialSubtree[any], 0, 128)
+	},
+}
+
 // New creates a new Trie with an initialized root Node.
 func New[T any]() *Trie[T] {
 	return &Trie[T]{
-		root: &node[T]{children: make(map[rune]*node[T]), depth: 0},
+		root: &node[T]{depth: 0}, // Lazy init children map
 		size: 0,
 	}
 }
 
-// Add adds the key to the Trie, including meta data. Meta data
-// is stored as `interface{}` and must be type cast by
-// the caller.
+// Add adds the key to the Trie, including meta data.
 func (t *Trie[T]) Add(key string, meta T) *node[T] {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -61,15 +82,19 @@ func (t *Trie[T]) Add(key string, meta T) *node[T] {
 	for i := range runes {
 		r := runes[i]
 		bitmask = maskruneslice(runes[i:])
-		if n, ok := nd.children[r]; ok {
-			nd = n
-			nd.mask |= bitmask
+		if nd.children != nil && len(nd.children) > 0 {
+			if n, ok := nd.children[r]; ok {
+				nd = n
+				nd.mask |= bitmask
+			} else {
+				nd = nd.newEmptyChild(r, bitmask)
+			}
 		} else {
-			nd = nd.newEmptyChild(r, "", bitmask)
+			nd = nd.newEmptyChild(r, bitmask)
 		}
 		nd.termCount++
 	}
-	nd = nd.newChild(nul, key, 0, meta, true)
+	nd = nd.newChild(nul, 0, meta, true, key)
 
 	return nd
 }
@@ -85,6 +110,9 @@ func (t *Trie[T]) Find(key string) (*node[T], bool) {
 		return nil, false
 	}
 
+	if nd.children == nil {
+		return nil, false
+	}
 	nd, ok := nd.children[nul]
 	if !ok || !nd.term {
 		return nil, false
@@ -119,11 +147,11 @@ func (t *Trie[T]) Remove(key string) {
 	t.size--
 	for n := nd.parent; n != nil; n = n.parent {
 		if n == t.root {
-			t.root = &node[T]{children: make(map[rune]*node[T])}
+			t.root = &node[T]{} // Lazy init children map
 			break
 		}
 
-		if len(n.children) > 1 {
+		if n.children != nil && len(n.children) > 1 {
 			n.removeChild(rs[n.depth])
 			break
 		}
@@ -166,32 +194,34 @@ func (t *Trie[T]) PrefixSearch(pre string) []string {
 }
 
 // newChild creates and returns a pointer to a new child for the node.
-func (n *node[T]) newChild(val rune, path string, bitmask uint64, meta T, term bool) *node[T] {
+func (n *node[T]) newChild(val rune, bitmask uint64, meta T, term bool, pathStr ...string) *node[T] {
 	node := &node[T]{
-		val:      val,
-		path:     path,
-		mask:     bitmask,
-		term:     term,
-		meta:     meta,
-		parent:   n,
-		children: make(map[rune]*node[T]),
-		depth:    n.depth + 1,
+		val:    val,
+		mask:   bitmask,
+		term:   term,
+		meta:   meta,
+		parent: n,
+		depth:  n.depth + 1,
 	}
+	// Only store path for terminal nodes
+	if term && len(pathStr) > 0 {
+		node.path = &pathStr[0]
+	}
+	n.ensureChildren()
 	n.children[node.val] = node
 	n.mask |= bitmask
 	return node
 }
 
 // newEmptyChild creates and returns a pointer to a new child for the node.
-func (n *node[T]) newEmptyChild(val rune, path string, bitmask uint64) *node[T] {
+func (n *node[T]) newEmptyChild(val rune, bitmask uint64) *node[T] {
 	node := &node[T]{
-		val:      val,
-		path:     path,
-		mask:     bitmask,
-		parent:   n,
-		children: make(map[rune]*node[T]),
-		depth:    n.depth + 1,
+		val:    val,
+		mask:   bitmask,
+		parent: n,
+		depth:  n.depth + 1,
 	}
+	n.ensureChildren()
 	n.children[node.val] = node
 	n.mask |= bitmask
 	return node
@@ -202,8 +232,10 @@ func (n *node[T]) removeChild(r rune) {
 	for nd := n.parent; nd != nil; nd = nd.parent {
 		nd.mask ^= nd.mask
 		nd.mask |= uint64(1) << uint64(nd.val-'a')
-		for _, c := range nd.children {
-			nd.mask |= c.mask
+		if nd.children != nil {
+			for _, c := range nd.children {
+				nd.mask |= c.mask
+			}
 		}
 	}
 }
@@ -211,6 +243,25 @@ func (n *node[T]) removeChild(r rune) {
 // Val returns the value of the node.
 func (n *node[T]) Val() T {
 	return n.meta
+}
+
+// ensureChildren lazily initializes the children map if needed
+func (n *node[T]) ensureChildren() {
+	if n.children == nil {
+		n.children = make(map[rune]*node[T])
+	}
+}
+
+// reconstructPath builds the full path from root to this node
+func (n *node[T]) reconstructPath() string {
+	if n.parent == nil {
+		return ""
+	}
+	if n.val == nul {
+		// Terminal node - return parent's path
+		return n.parent.reconstructPath()
+	}
+	return n.parent.reconstructPath() + string(n.val)
 }
 
 func findNode[T any](nd *node[T], runes []rune) *node[T] {
@@ -222,6 +273,9 @@ func findNode[T any](nd *node[T], runes []rune) *node[T] {
 		return nd
 	}
 
+	if nd.children == nil {
+		return nil
+	}
 	n, ok := nd.children[runes[0]]
 	if !ok {
 		return nil
@@ -247,18 +301,25 @@ func maskruneslice(rs []rune) uint64 {
 
 func collect[T any](nd *node[T]) []string {
 	keys := make([]string, 0, nd.termCount)
-	nodes := make([]*node[T], 1, len(nd.children)+1)
+	childrenCount := 0
+	if nd.children != nil {
+		childrenCount = len(nd.children)
+	}
+	nodes := make([]*node[T], 1, childrenCount+1)
 	nodes[0] = nd
 	for len(nodes) > 0 {
 		i := len(nodes) - 1
 		n := nodes[i]
 		nodes = nodes[:i]
-		for _, c := range n.children {
-			nodes = append(nodes, c)
+		if n.children != nil {
+			for _, c := range n.children {
+				nodes = append(nodes, c)
+			}
 		}
 		if n.term {
-			word := n.path
-			keys = append(keys, word)
+			if n.path != nil {
+				keys = append(keys, *n.path)
+			}
 		}
 	}
 	return keys
@@ -269,16 +330,31 @@ type potentialSubtree[T any] struct {
 	node *node[T]
 }
 
-func fuzzycollect[T any](nd *node[T], partial []rune) (keys []string) {
+func fuzzycollect[T any](nd *node[T], partial []rune) []string {
 	if len(partial) == 0 {
 		return collect(nd)
 	}
 
-	potential := []potentialSubtree[T]{{node: nd, idx: 0}}
+	// Get pooled slices to minimize allocations
+	keys := stringSlicePool.Get().([]string)
+	keys = keys[:0] // Reset length but keep capacity
+	defer stringSlicePool.Put(keys)
+
+	// Use a cast to work around generic pool limitations
+	potentialRaw := potentialSubtreePool.Get().([]potentialSubtree[any])
+	potential := make([]potentialSubtree[T], 1, cap(potentialRaw))
+	potential[0] = potentialSubtree[T]{node: nd, idx: 0}
+	defer func() {
+		// Clear and return the raw slice to pool
+		potentialRaw = potentialRaw[:0]
+		potentialSubtreePool.Put(potentialRaw)
+	}()
+
 	for len(potential) > 0 {
 		i := len(potential) - 1
 		p := potential[i]
 		potential = potential[:i]
+
 		// TODO(derekparker): This should be cachable.
 		m := maskruneslice(partial[p.idx:])
 		if (p.node.mask & m) != m {
@@ -288,14 +364,44 @@ func fuzzycollect[T any](nd *node[T], partial []rune) (keys []string) {
 		if p.node.val == partial[p.idx] {
 			p.idx++
 			if p.idx == len(partial) {
-				keys = append(keys, collect(p.node)...)
+				// Instead of calling collect(), do direct terminal collection
+				collectTerminalsDirectly(p.node, &keys)
 				continue
 			}
 		}
 
-		for _, c := range p.node.children {
-			potential = append(potential, potentialSubtree[T]{node: c, idx: p.idx})
+		if p.node.children != nil {
+			for _, c := range p.node.children {
+				potential = append(potential, potentialSubtree[T]{node: c, idx: p.idx})
+			}
 		}
 	}
-	return keys
+
+	// Copy result to return since keys slice is from pool
+	result := make([]string, len(keys))
+	copy(result, keys)
+	return result
+}
+
+// collectTerminalsDirectly collects terminal paths without allocating intermediate slices
+func collectTerminalsDirectly[T any](nd *node[T], keys *[]string) {
+	// Use stack-based traversal with pre-allocated node slice
+	nodes := make([]*node[T], 1, 32)
+	nodes[0] = nd
+
+	for len(nodes) > 0 {
+		i := len(nodes) - 1
+		n := nodes[i]
+		nodes = nodes[:i]
+
+		if n.children != nil {
+			for _, c := range n.children {
+				nodes = append(nodes, c)
+			}
+		}
+
+		if n.term && n.path != nil {
+			*keys = append(*keys, *n.path)
+		}
+	}
 }
