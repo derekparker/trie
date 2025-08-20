@@ -6,6 +6,7 @@
 package trie
 
 import (
+	"iter"
 	"slices"
 	"sort"
 	"sync"
@@ -64,6 +65,33 @@ func New[T any]() *Trie[T] {
 	return &Trie[T]{
 		root: &node[T]{depth: 0}, // Lazy init children map
 		size: 0,
+	}
+}
+
+// All returns a sequence of all key-value pairs in the trie.
+func (t *Trie[T]) All() iter.Seq2[string, T] {
+	return func(yield func(string, T) bool) {
+		childrenCount := 0
+		if t.root.children != nil {
+			childrenCount = len(t.root.children)
+		}
+		nodes := make([]*node[T], 1, childrenCount+1)
+		nodes[0] = t.root
+		for len(nodes) > 0 {
+			i := len(nodes) - 1
+			n := nodes[i]
+			nodes = nodes[:i]
+			if n.children != nil {
+				for _, c := range n.children {
+					nodes = append(nodes, c)
+				}
+			}
+			if n.path != nil {
+				if !yield(*n.path, n.meta) {
+					return
+				}
+			}
+		}
 	}
 }
 
