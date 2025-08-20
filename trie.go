@@ -293,32 +293,36 @@ func findNode[T any](nd *node[T], runes []rune) *node[T] {
 //
 //go:inline
 func maskruneslice(rs []rune) uint64 {
-	n := len(rs)
-	if n == 0 {
-		return 0
-	}
-
+	// Use 4 accumulators for better instruction-level parallelism
 	var m0, m1, m2, m3 uint64
 
-	i := 0
-	for n-i >= 4 {
-		r0 := rs[i+0]
-		r1 := rs[i+1]
-		r2 := rs[i+2]
-		r3 := rs[i+3]
+	// Process 4 elements at a time using slice patterns for BCE
+	for len(rs) >= 4 {
+		// Compiler knows rs[:4] is safe when len(rs) >= 4
+		// This pattern eliminates all bounds checks
+		r := rs[:4:4] // Full slice expression prevents capacity growth
 
-		m0 |= uint64(1) << uint64(r0-'a')
-		m1 |= uint64(1) << uint64(r1-'a')
-		m2 |= uint64(1) << uint64(r2-'a')
-		m3 |= uint64(1) << uint64(r3-'a')
+		// No bounds checks on these accesses
+		m0 |= uint64(1) << uint64(r[0]-'a')
+		m1 |= uint64(1) << uint64(r[1]-'a')
+		m2 |= uint64(1) << uint64(r[2]-'a')
+		m3 |= uint64(1) << uint64(r[3]-'a')
 
-		i += 4
+		rs = rs[4:]
 	}
 
-	// Handle remaining elements
-	for i < n {
-		m0 |= uint64(1) << uint64(rs[i]-'a')
-		i++
+	// Handle remaining elements (0-3)
+	// Process remaining with explicit length checks for BCE
+	switch len(rs) {
+	case 3:
+		m0 |= uint64(1) << uint64(rs[0]-'a')
+		m1 |= uint64(1) << uint64(rs[1]-'a')
+		m2 |= uint64(1) << uint64(rs[2]-'a')
+	case 2:
+		m0 |= uint64(1) << uint64(rs[0]-'a')
+		m1 |= uint64(1) << uint64(rs[1]-'a')
+	case 1:
+		m0 |= uint64(1) << uint64(rs[0]-'a')
 	}
 
 	// Combine all accumulators
