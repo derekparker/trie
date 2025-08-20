@@ -8,6 +8,28 @@ import (
 	"testing"
 )
 
+func BenchmarkMaskruneslice(b *testing.B) {
+	testCases := []struct {
+		name  string
+		input string
+	}{
+		{"short", "test"},
+		{"medium", "benchmark"},
+		{"long", "thisisaverylongstringfortesting"},
+		{"alphabet", "abcdefghijklmnopqrstuvwxyz"},
+	}
+
+	for _, tc := range testCases {
+		runes := []rune(tc.input)
+		b.Run(tc.name, func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				_ = maskruneslice(runes)
+			}
+		})
+	}
+}
+
 func createTrieAndAddFromFile[T any](path string, val T) *Trie[T] {
 	t := New[T]()
 	file, err := os.Open(path)
