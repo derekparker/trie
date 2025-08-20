@@ -6,6 +6,7 @@
 package trie
 
 import (
+	"slices"
 	"sort"
 	"sync"
 )
@@ -383,7 +384,6 @@ func fuzzycollect[T any](nd *node[T], partial []rune) []string {
 		p := potential[i]
 		potential = potential[:i]
 
-		// TODO(derekparker): This should be cachable.
 		m := maskruneslice(partial[p.idx:])
 		if (p.node.mask & m) != m {
 			continue
@@ -406,9 +406,7 @@ func fuzzycollect[T any](nd *node[T], partial []rune) []string {
 	}
 
 	// Copy result to return since keys slice is from pool
-	result := make([]string, len(keys))
-	copy(result, keys)
-	return result
+	return slices.Clone(keys)
 }
 
 // collectTerminalsDirectly collects terminal paths without allocating intermediate slices
