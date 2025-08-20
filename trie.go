@@ -20,8 +20,6 @@ type node[T any] struct {
 	val       rune
 	depth     int32
 	termCount int32
-
-	term bool
 }
 
 // Trie is a data structure that stores a set of strings.
@@ -94,7 +92,7 @@ func (t *Trie[T]) Add(key string, meta T) *node[T] {
 		}
 		nd.termCount++
 	}
-	nd = nd.newChild(nul, 0, meta, true, key)
+	nd = nd.newChild(nul, 0, meta, key)
 
 	return nd
 }
@@ -114,7 +112,7 @@ func (t *Trie[T]) Find(key string) (*node[T], bool) {
 		return nil, false
 	}
 	nd, ok := nd.children[nul]
-	if !ok || !nd.term {
+	if !ok || nd.path == nil {
 		return nil, false
 	}
 
@@ -194,17 +192,16 @@ func (t *Trie[T]) PrefixSearch(pre string) []string {
 }
 
 // newChild creates and returns a pointer to a new child for the node.
-func (n *node[T]) newChild(val rune, bitmask uint64, meta T, term bool, pathStr ...string) *node[T] {
+func (n *node[T]) newChild(val rune, bitmask uint64, meta T, pathStr ...string) *node[T] {
 	node := &node[T]{
 		val:    val,
 		mask:   bitmask,
-		term:   term,
 		meta:   meta,
 		parent: n,
 		depth:  n.depth + 1,
 	}
-	// Only store path for terminal nodes
-	if term && len(pathStr) > 0 {
+	// Store path for terminal nodes
+	if len(pathStr) > 0 {
 		node.path = &pathStr[0]
 	}
 	n.ensureChildren()
@@ -316,10 +313,8 @@ func collect[T any](nd *node[T]) []string {
 				nodes = append(nodes, c)
 			}
 		}
-		if n.term {
-			if n.path != nil {
-				keys = append(keys, *n.path)
-			}
+		if n.path != nil {
+			keys = append(keys, *n.path)
 		}
 	}
 	return keys
@@ -400,7 +395,7 @@ func collectTerminalsDirectly[T any](nd *node[T], keys *[]string) {
 			}
 		}
 
-		if n.term && n.path != nil {
+		if n.path != nil {
 			*keys = append(*keys, *n.path)
 		}
 	}
