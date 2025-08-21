@@ -488,6 +488,113 @@ func TestFuzzySearch(t *testing.T) {
 	}
 }
 
+func TestFuzzySearchIter(t *testing.T) {
+	setup := []string{
+		"foosball",
+		"football",
+		"bmerica",
+		"ked",
+		"kedlock",
+		"frosty",
+		"bfrza",
+		"foo/bart/baz.go",
+	}
+	tests := []struct {
+		partial string
+		length  int
+	}{
+		{"fsb", 1},
+		{"footbal", 1},
+		{"football", 1},
+		{"fs", 2},
+		{"oos", 1},
+		{"kl", 1},
+		{"ft", 3},
+		{"fy", 1},
+		{"fz", 2},
+		{"a", 5},
+		{"", 8},
+		{"zzz", 0},
+	}
+
+	trie := New[interface{}]()
+	for _, key := range setup {
+		trie.Add(key, nil)
+	}
+
+	for _, test := range tests {
+		t.Run(test.partial, func(t *testing.T) {
+			// Collect results from iterator
+			var results []string
+			for key := range trie.FuzzySearchIter(test.partial) {
+				results = append(results, key)
+			}
+
+			// Get results from regular FuzzySearch
+			expected := trie.FuzzySearch(test.partial)
+
+			// Check lengths match
+			if len(results) != test.length {
+				t.Errorf("Expected len(results) to == %d, was %d for %s results was %#v",
+					test.length, len(results), test.partial, results)
+			}
+
+			// Check that results contain the same keys (order may differ)
+			if len(results) != len(expected) {
+				t.Errorf("Iterator results length %d doesn't match FuzzySearch length %d for %s",
+					len(results), len(expected), test.partial)
+			}
+
+			// Create maps to check set equality
+			resultSet := make(map[string]bool)
+			for _, key := range results {
+				resultSet[key] = true
+			}
+
+			expectedSet := make(map[string]bool)
+			for _, key := range expected {
+				expectedSet[key] = true
+			}
+
+			// Check that all expected keys are in results
+			for key := range expectedSet {
+				if !resultSet[key] {
+					t.Errorf("Expected key %s not found in iterator results for pattern %s", key, test.partial)
+				}
+			}
+
+			// Check that no unexpected keys are in results
+			for key := range resultSet {
+				if !expectedSet[key] {
+					t.Errorf("Unexpected key %s found in iterator results for pattern %s", key, test.partial)
+				}
+			}
+		})
+	}
+}
+
+func TestFuzzySearchIterEarlyStop(t *testing.T) {
+	trie := New[interface{}]()
+	keys := []string{"foo", "foobar", "foobaz", "football", "foosball"}
+	for _, key := range keys {
+		trie.Add(key, nil)
+	}
+
+	// Test that we can stop iteration early
+	count := 0
+	maxCount := 2
+	for range trie.FuzzySearchIter("f") {
+		count++
+		if count >= maxCount {
+			break
+		}
+	}
+
+	if count != maxCount {
+		t.Errorf("Expected to stop at %d iterations, got %d", maxCount, count)
+	}
+}
+
 func TestFuzzySearchEmpty(t *testing.T) {
 	trie := New[interface{}]()
 	keys := trie.FuzzySearch("")
@@ -551,11 +658,39 @@ func BenchmarkPrefixSearch(b *testing.B) {
 }
 
 func BenchmarkFuzzySearch(b *testing.B) {
-	trie := createTrieAndAddFromFile[interface{}]("/usr/share/dict/words", nil)
+	trie := createTrieAndAddFromFile[interface{}]("fixtures/test.txt", nil)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = trie.FuzzySearch("fs")
+	}
+}
+
+func BenchmarkFuzzySearchIter(b *testing.B) {
+	trie := createTrieAndAddFromFile[interface{}]("fixtures/test.txt", nil)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		count := 0
+		for range trie.FuzzySearchIter("fs") {
+			count++
+		}
+	}
+}
+
+func BenchmarkFuzzySearchIterEarlyStop(b *testing.B) {
+	trie := createTrieAndAddFromFile[interface{}]("fixtures/test.txt", nil)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		count := 0
+		maxCount := 10
+		for range trie.FuzzySearchIter("fs") {
+			count++
+			if count >= maxCount {
+				break
+			}
+		}
 	}
 }
 
