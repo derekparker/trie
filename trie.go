@@ -213,19 +213,28 @@ func (t *Trie[T]) FuzzySearchIter(pre string) iter.Seq[string] {
 
 // PrefixSearch performs a prefix search against the keys in the trie.
 func (t *Trie[T]) PrefixSearch(pre string) []string {
+	// Use PrefixSearchIter internally to avoid code duplication
+	var keys []string
+	for key := range t.PrefixSearchIter(pre) {
+		keys = append(keys, key)
+	}
+	return keys
+}
+
+// PrefixSearchIter performs a prefix search and returns an iterator over matching key-value pairs.
+// Unlike PrefixSearch, this returns an iterator that yields both keys and their associated values.
+// This provides lazy evaluation and is more memory efficient for large result sets.
+func (t *Trie[T]) PrefixSearchIter(pre string) iter.Seq2[string, T] {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 
 	nd := findNode(t.root, []rune(pre))
 	if nd == nil {
-		return nil
+		// Return an empty iterator if no node is found
+		return func(yield func(string, T) bool) {}
 	}
 
-	keys := make([]string, 0, nd.termCount)
-	for key := range collectIter(nd) {
-		keys = append(keys, key)
-	}
-	return keys
+	return collectIter(nd)
 }
 
 // newChild creates and returns a pointer to a new child for the node.
