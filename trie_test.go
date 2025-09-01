@@ -443,6 +443,197 @@ func TestPrefixSearchEmpty(t *testing.T) {
 	}
 }
 
+func TestPrefixSearchIter(t *testing.T) {
+	trie := New[string]()
+
+	// Add test data with values
+	testData := map[string]string{
+		"foo":                          "value1",
+		"foosball":                     "value2",
+		"football":                     "value3",
+		"foreboding":                   "value4",
+		"forementioned":                "value5",
+		"foretold":                     "value6",
+		"foreverandeverandeverandever": "value7",
+		"forbidden":                    "value8",
+		"bar":                          "value9",
+		"baz":                          "value10",
+	}
+
+	for key, value := range testData {
+		trie.Add(key, value)
+	}
+
+	tests := []struct {
+		prefix   string
+		expected map[string]string
+	}{
+		{
+			prefix: "fo",
+			expected: map[string]string{
+				"foo":                          "value1",
+				"foosball":                     "value2",
+				"football":                     "value3",
+				"foreboding":                   "value4",
+				"forementioned":                "value5",
+				"foretold":                     "value6",
+				"foreverandeverandeverandever": "value7",
+				"forbidden":                    "value8",
+			},
+		},
+		{
+			prefix: "foosbal",
+			expected: map[string]string{
+				"foosball": "value2",
+			},
+		},
+		{
+			prefix: "bar",
+			expected: map[string]string{
+				"bar": "value9",
+			},
+		},
+		{
+			prefix:   "xyz",
+			expected: map[string]string{},
+		},
+		{
+			prefix:   "",
+			expected: testData, // Empty prefix should return all entries
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.prefix, func(t *testing.T) {
+			// Collect results from iterator
+			iterResults := make(map[string]string)
+			for key, value := range trie.PrefixSearchIter(test.prefix) {
+				iterResults[key] = value
+			}
+
+			// Compare lengths
+			if len(iterResults) != len(test.expected) {
+				t.Errorf("Length mismatch for prefix '%s': got %d, expected %d",
+					test.prefix, len(iterResults), len(test.expected))
+			}
+
+			// Compare key-value pairs
+			for expectedKey, expectedValue := range test.expected {
+				if actualValue, ok := iterResults[expectedKey]; !ok {
+					t.Errorf("Missing key '%s' for prefix '%s'", expectedKey, test.prefix)
+				} else if actualValue != expectedValue {
+					t.Errorf("Value mismatch for key '%s' with prefix '%s': got '%s', expected '%s'",
+						expectedKey, test.prefix, actualValue, expectedValue)
+				}
+			}
+
+			// Check for unexpected keys
+			for actualKey := range iterResults {
+				if _, ok := test.expected[actualKey]; !ok {
+					t.Errorf("Unexpected key '%s' for prefix '%s'", actualKey, test.prefix)
+				}
+			}
+		})
+	}
+}
+
+func TestPrefixSearchIterEmpty(t *testing.T) {
+	trie := New[string]()
+
+	count := 0
+	for range trie.PrefixSearchIter("") {
+		count++
+	}
+
+	if count != 0 {
+		t.Errorf("Expected 0 entries from empty trie, got: %d", count)
+	}
+}
+
+func TestPrefixSearchIterEarlyStop(t *testing.T) {
+	trie := New[int]()
+	keys := []string{"foo", "foobar", "foobaz", "football", "foosball"}
+	for i, key := range keys {
+		trie.Add(key, i)
+	}
+
+	// Test that we can stop iteration early
+	count := 0
+	maxCount := 2
+	for range trie.PrefixSearchIter("foo") {
+		count++
+		if count >= maxCount {
+			break
+		}
+	}
+
+	if count != maxCount {
+		t.Errorf("Expected to stop at %d iterations, got %d", maxCount, count)
+	}
+}
+
+func TestPrefixSearchAndIterConsistency(t *testing.T) {
+	trie := New[int]()
+
+	// Add test data
+	testData := map[string]int{
+		"apple":       1,
+		"application": 2,
+		"apply":       3,
+		"banana":      4,
+		"band":        5,
+		"bandana":     6,
+		"can":         7,
+		"candy":       8,
+		"candid":      9,
+	}
+
+	for key, value := range testData {
+		trie.Add(key, value)
+	}
+
+	prefixes := []string{"", "app", "ban", "can", "z"}
+
+	for _, prefix := range prefixes {
+		t.Run(prefix, func(t *testing.T) {
+			// Get results from PrefixSearch
+			searchResults := trie.PrefixSearch(prefix)
+			searchSet := make(map[string]bool)
+			for _, key := range searchResults {
+				searchSet[key] = true
+			}
+
+			// Collect results from PrefixSearchIter
+			iterResults := make(map[string]int)
+			for key, value := range trie.PrefixSearchIter(prefix) {
+				iterResults[key] = value
+			}
+
+			// Check that all keys match
+			if len(searchResults) != len(iterResults) {
+				t.Errorf("Length mismatch for prefix '%s': PrefixSearch=%d, PrefixSearchIter=%d",
+					prefix, len(searchResults), len(iterResults))
+			}
+
+			// Verify all keys from PrefixSearch are in PrefixSearchIter
+			for _, key := range searchResults {
+				if _, ok := iterResults[key]; !ok {
+					t.Errorf("Key '%s' found in PrefixSearch but not in PrefixSearchIter for prefix '%s'",
+						key, prefix)
+				}
+			}
+
+			// Verify all keys from PrefixSearchIter are in PrefixSearch
+			for key := range iterResults {
+				if !searchSet[key] {
+					t.Errorf("Key '%s' found in PrefixSearchIter but not in PrefixSearch for prefix '%s'",
+						key, prefix)
+				}
+			}
+		})
+	}
+}
+
 func TestFuzzySearch(t *testing.T) {
 	setup := []string{
 		"foosball",
@@ -654,6 +845,34 @@ func BenchmarkPrefixSearch(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = trie.PrefixSearch("fo")
+	}
+}
+
+func BenchmarkPrefixSearchIter(b *testing.B) {
+	trie := createTrieAndAddFromFile[interface{}]("/usr/share/dict/words", nil)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		count := 0
+		for range trie.PrefixSearchIter("fo") {
+			count++
+		}
+	}
+}
+
+func BenchmarkPrefixSearchIterEarlyStop(b *testing.B) {
+	trie := createTrieAndAddFromFile[interface{}]("/usr/share/dict/words", nil)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		count := 0
+		maxCount := 10
+		for range trie.PrefixSearchIter("fo") {
+			count++
+			if count >= maxCount {
+				break
+			}
+		}
 	}
 }
 
