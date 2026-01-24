@@ -47,7 +47,16 @@ func New[T any]() *Trie[T] {
 
 // AllKeyValuesIter returns a sequence of all key-value pairs in the trie.
 func (t *Trie[T]) AllKeyValuesIter() iter.Seq2[string, T] {
-	return collectIter(t.root)
+	return func(yield func(string, T) bool) {
+		t.mu.RLock()
+		defer t.mu.RUnlock()
+
+		for k, v := range collectIter(t.root) {
+			if !yield(k, v) {
+				return
+			}
+		}
+	}
 }
 
 // AllKeyValues returns a map of all key-value pairs in the trie.
@@ -290,10 +299,17 @@ func (t *Trie[T]) FuzzySearch(pre string) []string {
 // Unlike FuzzySearch, the keys are not sorted - they are yielded as they are found.
 // This provides lazy evaluation and is more memory efficient for large result sets.
 func (t *Trie[T]) FuzzySearchIter(pre string) iter.Seq[string] {
-	t.mu.RLock()
-	defer t.mu.RUnlock()
+	return func(yield func(string) bool) {
+		t.mu.RLock()
+		defer t.mu.RUnlock()
 
-	return fuzzycollectIter(t.root, []rune(pre))
+		runes := []rune(pre)
+		for k := range fuzzycollectIter(t.root, runes) {
+			if !yield(k) {
+				return
+			}
+		}
+	}
 }
 
 // PrefixSearch performs a prefix search against the keys in the trie.
@@ -310,16 +326,21 @@ func (t *Trie[T]) PrefixSearch(pre string) []string {
 // Unlike PrefixSearch, this returns an iterator that yields both keys and their associated values.
 // This provides lazy evaluation and is more memory efficient for large result sets.
 func (t *Trie[T]) PrefixSearchIter(pre string) iter.Seq2[string, T] {
-	t.mu.RLock()
-	defer t.mu.RUnlock()
+	return func(yield func(string, T) bool) {
+		t.mu.RLock()
+		defer t.mu.RUnlock()
 
-	nd := findNode(t.root, pre)
-	if nd == nil {
-		// Return an empty iterator if no node is found
-		return func(yield func(string, T) bool) {}
+		nd := findNode(t.root, pre)
+		if nd == nil {
+			return
+		}
+
+		for k, v := range collectIter(nd) {
+			if !yield(k, v) {
+				return
+			}
+		}
 	}
-
-	return collectIter(nd)
 }
 
 // newChild creates and returns a pointer to a new child for the node.
@@ -471,11 +492,6 @@ func collectIter[T any](nd *node[T]) iter.Seq2[string, T] {
 			}
 		}
 	}
-}
-
-type potentialSubtree[T any] struct {
-	idx  int
-	node *node[T]
 }
 
 // fuzzycollectIter performs a fuzzy search and yields matching keys as an iterator
