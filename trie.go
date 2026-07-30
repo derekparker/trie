@@ -9,7 +9,9 @@ import (
 	"iter"
 	"maps"
 	"sort"
+	"strings"
 	"sync"
+	"unicode/utf8"
 )
 
 type node[T any] struct {
@@ -19,9 +21,7 @@ type node[T any] struct {
 	meta     T
 	path     *string // pointer to full key for terminal nodes
 
-	segment   string // the string segment stored in this node
-	depth     int32
-	termCount int32
+	segment string // the string segment stored in this node
 }
 
 // Trie is a data structure that stores a set of strings.
@@ -31,23 +31,39 @@ type Trie[T any] struct {
 	size int
 }
 
+// ByKeys orders keys shortest first, breaking ties lexicographically so that
+// results are stable rather than dependent on map iteration order.
 type ByKeys []string
 
-func (a ByKeys) Len() int           { return len(a) }
-func (a ByKeys) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a ByKeys) Less(i, j int) bool { return len(a[i]) < len(a[j]) }
+func (a ByKeys) Len() int      { return len(a) }
+func (a ByKeys) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a ByKeys) Less(i, j int) bool {
+	if len(a[i]) != len(a[j]) {
+		return len(a[i]) < len(a[j])
+	}
+	return a[i] < a[j]
+}
 
 // New creates a new Trie with an initialized root Node.
 func New[T any]() *Trie[T] {
 	return &Trie[T]{
-		root: &node[T]{depth: 0}, // Lazy init children map
+		root: &node[T]{}, // Lazy init children map
 		size: 0,
 	}
 }
 
 // AllKeyValuesIter returns a sequence of all key-value pairs in the trie.
+//
+// The trie's read lock is held for the duration of the iteration, so the
+// consumer must not call Add or Remove on this trie from inside the loop;
+// doing so deadlocks. Break out first, or use AllKeyValues for a snapshot.
 func (t *Trie[T]) AllKeyValuesIter() iter.Seq2[string, T] {
-	return collectIter(t.root)
+	return func(yield func(string, T) bool) {
+		t.mu.RLock()
+		defer t.mu.RUnlock()
+
+		collectIter(t.root)(yield)
+	}
 }
 
 // AllKeyValues returns a map of all key-value pairs in the trie.
@@ -67,120 +83,113 @@ func (t *Trie[T]) Add(key string, meta T) *node[T] {
 		return nil
 	}
 
-	t.size++
-	keyRunes := []rune(key)
-	bitmask := maskruneslice(keyRunes)
 	nd := t.root
-	nd.mask |= bitmask
-	nd.termCount++
+	nd.mask |= maskstring(key)
 
-	remainingRunes := keyRunes
+	// Segments are sliced out of the key, so they share its backing array
+	// instead of allocating a fresh string per node.
+	remaining := key
 
-	for len(remainingRunes) > 0 {
-		firstRune := remainingRunes[0]
+	for len(remaining) > 0 {
+		firstRune, _ := utf8.DecodeRuneInString(remaining)
 
-		// Check if there's a child starting with this rune
-		if len(nd.children) == 0 {
-			// No children, create new child with full remaining string
-			return nd.newChild(string(remainingRunes), meta, key)
-		}
-
+		// Check if there's a child starting with this rune. A nil children map
+		// simply misses, which is the "no children yet" case.
 		child, exists := nd.children[firstRune]
 		if !exists {
 			// No child with this first rune, create new one
-			return nd.newChild(string(remainingRunes), meta, key)
+			t.size++
+			return nd.newChild(remaining, meta, key)
 		}
 
 		// Find common prefix between remaining and child's segment
-		segmentRunes := []rune(child.segment)
-		commonLen := commonPrefixLenRunes(remainingRunes, segmentRunes)
+		commonLen := commonPrefixLen(remaining, child.segment)
 
-		if commonLen == len(segmentRunes) {
+		if commonLen == len(child.segment) {
 			// Full match with child's segment, continue down
-			remainingRunes = remainingRunes[commonLen:]
+			remaining = remaining[commonLen:]
 			nd = child
 
-			if len(remainingRunes) > 0 {
-				bitmask := maskruneslice(remainingRunes)
-				nd.mask |= bitmask
+			if len(remaining) > 0 {
+				nd.mask |= maskstring(remaining)
+				continue
 			}
-			nd.termCount++
 
-			if len(remainingRunes) == 0 {
-				// Key ends exactly at this node
-				nd.meta = meta
-				if nd.path == nil {
-					nd.path = &key
-				}
+			// Key ends exactly at this node
+			nd.meta = meta
+			if nd.path != nil {
+				// Duplicate key, already counted
 				return nd
 			}
-			continue
+			nd.path = &key
+			t.size++
+			return nd
 		}
 
 		// Partial match - need to split the child node
 		// Create intermediate node with common prefix
 		intermediate := &node[T]{
-			segment:   string(segmentRunes[:commonLen]),
-			parent:    nd,
-			depth:     nd.depth + 1,
-			children:  make(map[rune]*node[T]),
-			termCount: child.termCount,
+			segment:  child.segment[:commonLen],
+			parent:   nd,
+			children: make(map[rune]*node[T]),
 		}
 
 		// Update child's segment to be the non-common part
-		childNewSegmentRunes := segmentRunes[commonLen:]
-		child.segment = string(childNewSegmentRunes)
+		child.segment = child.segment[commonLen:]
 		child.parent = intermediate
-		intermediate.children[childNewSegmentRunes[0]] = child
+		childFirstRune, _ := utf8.DecodeRuneInString(child.segment)
+		intermediate.children[childFirstRune] = child
 
 		// Update parent's children map
 		nd.children[firstRune] = intermediate
 
-		// Update masks
-		if child.children != nil {
-			for _, c := range child.children {
-				intermediate.mask |= c.mask
-			}
-		}
-		if len(childNewSegmentRunes) > 0 {
-			intermediate.mask |= maskruneslice(childNewSegmentRunes)
-		}
+		// Update masks. The child's segment shrank to the remainder, so its
+		// mask has to be rebuilt before the intermediate can fold it in.
+		// The intermediate must cover the common prefix it now owns as well:
+		// omitting it makes the fuzzy search prune valid subtrees.
+		child.recomputeMask()
+		intermediate.recomputeMask()
 
-		remainingRunes = remainingRunes[commonLen:]
+		remaining = remaining[commonLen:]
 		nd = intermediate
 
-		if len(remainingRunes) > 0 {
-			bitmask := maskruneslice(remainingRunes)
-			nd.mask |= bitmask
-		}
-		nd.termCount++
-
-		if len(remainingRunes) == 0 {
-			// Key ends at the split point
+		if len(remaining) == 0 {
+			// Key ends at the split point. The intermediate node was just
+			// created, so this is always a new key, never a duplicate.
 			nd.meta = meta
 			nd.path = &key
+			t.size++
 			return nd
 		}
 
 		// Create new child for remaining part
-		newChild := nd.newChild(string(remainingRunes), meta, key)
-		return newChild
+		nd.mask |= maskstring(remaining)
+		t.size++
+		return nd.newChild(remaining, meta, key)
 	}
 
 	// Should not reach here
 	return nd
 }
 
-// commonPrefixLenRunes returns the length of the common prefix between two rune slices
-func commonPrefixLenRunes(r1, r2 []rune) int {
-	minLen := min(len(r1), len(r2))
+// commonPrefixLen returns the length in bytes of the longest common prefix of
+// a and b. Both are assumed to be valid UTF-8, and the result is always a rune
+// boundary: a multi-byte rune whose leading bytes agree must not be split, or
+// the segments either side of it stop being valid UTF-8.
+func commonPrefixLen(a, b string) int {
+	n := min(len(a), len(b))
 
-	for i := range minLen {
-		if r1[i] != r2[i] {
-			return i
-		}
+	i := 0
+	for i < n && a[i] == b[i] {
+		i++
 	}
-	return minLen
+
+	// Back up to the start of a partially matched rune. Position len(a) is
+	// always a boundary, since a is valid UTF-8 on its own.
+	for i < len(a) && !utf8.RuneStart(a[i]) {
+		i--
+	}
+	return i
 }
 
 // Find finds and returns meta data associated
@@ -189,7 +198,7 @@ func (t *Trie[T]) Find(key string) (*node[T], bool) {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 
-	nd := findNode(t.root, key)
+	nd := findNode(t.root, key, true)
 	if nd == nil || nd.path == nil {
 		return nil, false
 	}
@@ -201,7 +210,7 @@ func (t *Trie[T]) HasKeysWithPrefix(key string) bool {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 
-	nd := findNode(t.root, key)
+	nd := findNode(t.root, key, false)
 	return nd != nil
 }
 
@@ -211,7 +220,7 @@ func (t *Trie[T]) Remove(key string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	nd := findNode(t.root, key)
+	nd := findNode(t.root, key, true)
 	if nd == nil || nd.path == nil {
 		return
 	}
@@ -236,7 +245,7 @@ func (t *Trie[T]) Remove(key string) {
 
 		// Remove this node from parent's children
 		if len(nd.segment) > 0 {
-			firstRune := []rune(nd.segment)[0]
+			firstRune, _ := utf8.DecodeRuneInString(nd.segment)
 			delete(parent.children, firstRune)
 		}
 
@@ -247,15 +256,7 @@ func (t *Trie[T]) Remove(key string) {
 
 	// Recalculate bitmasks from this point up
 	for n := nd; n != nil; n = n.parent {
-		n.mask = 0
-		if n.children != nil {
-			for _, c := range n.children {
-				n.mask |= c.mask
-			}
-		}
-		if len(n.segment) > 0 {
-			n.mask |= maskruneslice([]rune(n.segment))
-		}
+		n.recomputeMask()
 	}
 }
 
@@ -268,7 +269,15 @@ func (t *Trie[T]) Keys() []string {
 		return []string{}
 	}
 
-	return t.PrefixSearch("")
+	// Collect directly rather than delegating to PrefixSearch: the public
+	// search methods take the read lock themselves, and sync.RWMutex read
+	// locks are not reentrant, so nesting them deadlocks whenever a writer
+	// queues up in between.
+	keys := make([]string, 0, t.size)
+	for key := range collectIter(t.root) {
+		keys = append(keys, key)
+	}
+	return keys
 }
 
 // FuzzySearch performs a fuzzy search against the keys in the trie.
@@ -289,11 +298,17 @@ func (t *Trie[T]) FuzzySearch(pre string) []string {
 // FuzzySearchIter performs a fuzzy search and returns an iterator over matching keys.
 // Unlike FuzzySearch, the keys are not sorted - they are yielded as they are found.
 // This provides lazy evaluation and is more memory efficient for large result sets.
+//
+// The trie's read lock is held for the duration of the iteration, so the
+// consumer must not call Add or Remove on this trie from inside the loop;
+// doing so deadlocks. Break out first, or use FuzzySearch for a snapshot.
 func (t *Trie[T]) FuzzySearchIter(pre string) iter.Seq[string] {
-	t.mu.RLock()
-	defer t.mu.RUnlock()
+	return func(yield func(string) bool) {
+		t.mu.RLock()
+		defer t.mu.RUnlock()
 
-	return fuzzycollectIter(t.root, []rune(pre))
+		fuzzycollectIter(t.root, []rune(pre))(yield)
+	}
 }
 
 // PrefixSearch performs a prefix search against the keys in the trie.
@@ -309,38 +324,42 @@ func (t *Trie[T]) PrefixSearch(pre string) []string {
 // PrefixSearchIter performs a prefix search and returns an iterator over matching key-value pairs.
 // Unlike PrefixSearch, this returns an iterator that yields both keys and their associated values.
 // This provides lazy evaluation and is more memory efficient for large result sets.
+//
+// The trie's read lock is held for the duration of the iteration, so the
+// consumer must not call Add or Remove on this trie from inside the loop;
+// doing so deadlocks. Break out first, or use PrefixSearch for a snapshot.
 func (t *Trie[T]) PrefixSearchIter(pre string) iter.Seq2[string, T] {
-	t.mu.RLock()
-	defer t.mu.RUnlock()
+	return func(yield func(string, T) bool) {
+		t.mu.RLock()
+		defer t.mu.RUnlock()
 
-	nd := findNode(t.root, pre)
-	if nd == nil {
-		// Return an empty iterator if no node is found
-		return func(yield func(string, T) bool) {}
+		nd := findNode(t.root, pre, false)
+		if nd == nil {
+			// No node found, yield nothing
+			return
+		}
+
+		collectIter(nd)(yield)
 	}
-
-	return collectIter(nd)
 }
 
 // newChild creates and returns a pointer to a new child for the node.
 func (n *node[T]) newChild(segment string, meta T, fullKey string) *node[T] {
-	runes := []rune(segment)
-	if len(runes) == 0 {
+	if len(segment) == 0 {
 		return nil
 	}
 
-	bitmask := maskruneslice(runes)
+	bitmask := maskstring(segment)
 	child := &node[T]{
 		segment: segment,
 		mask:    bitmask,
 		meta:    meta,
 		parent:  n,
-		depth:   n.depth + 1,
 		path:    &fullKey,
 	}
 
 	n.ensureChildren()
-	firstRune := runes[0]
+	firstRune, _ := utf8.DecodeRuneInString(segment)
 	n.children[firstRune] = child
 	n.mask |= bitmask
 	return child
@@ -358,7 +377,23 @@ func (n *node[T]) ensureChildren() {
 	}
 }
 
-func findNode[T any](nd *node[T], key string) *node[T] {
+// recomputeMask rebuilds n.mask from n's own segment plus its children's masks,
+// which is the invariant the fuzzy search prunes against: a node's mask covers
+// every rune appearing in the subtree rooted at it, its own segment included.
+// The children's masks must already be correct.
+func (n *node[T]) recomputeMask() {
+	mask := maskstring(n.segment)
+	for _, c := range n.children {
+		mask |= c.mask
+	}
+	n.mask = mask
+}
+
+// findNode walks the trie looking for key. When exact is true the key must end
+// precisely on a node boundary, which is what lookups like Find and Remove
+// need. When exact is false a key that stops partway through a compressed
+// segment still matches, which is what prefix queries need.
+func findNode[T any](nd *node[T], key string, exact bool) *node[T] {
 	if nd == nil {
 		return nil
 	}
@@ -366,43 +401,47 @@ func findNode[T any](nd *node[T], key string) *node[T] {
 	remaining := key
 
 	for len(remaining) > 0 {
-		if len(nd.children) == 0 {
-			return nil
-		}
-
-		runes := []rune(remaining)
-		firstRune := runes[0]
-
+		firstRune, _ := utf8.DecodeRuneInString(remaining)
 		child, exists := nd.children[firstRune]
 		if !exists {
 			return nil
 		}
 
-		// Check if remaining matches child's segment
-		segmentRunes := []rune(child.segment)
-		remainingRunes := []rune(remaining)
-
-		// For prefix search: allow partial match if remaining is shorter
-		matchLen := min(len(segmentRunes), len(remainingRunes))
-
-		// Compare segment with beginning of remaining
-		for i := range matchLen {
-			if remainingRunes[i] != segmentRunes[i] {
+		// The key runs out partway through the segment. That is a hit only for
+		// prefix queries; an exact lookup needs the key to consume the whole
+		// segment, not just land somewhere inside it.
+		if len(remaining) < len(child.segment) {
+			if exact || !strings.HasPrefix(child.segment, remaining) {
 				return nil
 			}
-		}
-
-		// If we've consumed all of remaining, this is the node we want
-		if len(remainingRunes) <= len(segmentRunes) {
 			return child
 		}
 
+		if !strings.HasPrefix(remaining, child.segment) {
+			return nil
+		}
+
 		// Segment matches, continue
-		remaining = string(remainingRunes[len(segmentRunes):])
+		remaining = remaining[len(child.segment):]
+		if len(remaining) == 0 {
+			return child
+		}
 		nd = child
 	}
 
 	return nd
+}
+
+// maskstring creates a bitmask for the runes in s. Ranging a string decodes
+// runes in place, so unlike maskruneslice this needs no []rune allocation.
+//
+//go:inline
+func maskstring(s string) uint64 {
+	var m uint64
+	for _, r := range s {
+		m |= uint64(1) << uint64(r-'a')
+	}
+	return m
 }
 
 // maskruneslice creates a bitmask for the given runes.
@@ -473,11 +512,6 @@ func collectIter[T any](nd *node[T]) iter.Seq2[string, T] {
 	}
 }
 
-type potentialSubtree[T any] struct {
-	idx  int
-	node *node[T]
-}
-
 // fuzzycollectIter performs a fuzzy search and yields matching keys as an iterator
 func fuzzycollectIter[T any](nd *node[T], partial []rune) iter.Seq[string] {
 	return func(yield func(string) bool) {
@@ -510,9 +544,9 @@ func fuzzycollectIter[T any](nd *node[T], partial []rune) iter.Seq[string] {
 				continue
 			}
 
-			// Check if any rune in segment matches current partial rune
-			segmentRunes := []rune(p.node.segment)
-			for _, r := range segmentRunes {
+			// Check if any rune in segment matches current partial rune.
+			// Ranging the string decodes runes without allocating.
+			for _, r := range p.node.segment {
 				if p.idx < len(partial) && r == partial[p.idx] {
 					p.idx++
 					if p.idx == len(partial) {
