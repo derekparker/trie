@@ -6,6 +6,7 @@ import (
 	"maps"
 	"os"
 	"sort"
+	"strings"
 	"testing"
 )
 
@@ -58,7 +59,9 @@ func TestTrieAll(t *testing.T) {
 	trie.Add("baz", 3)
 	trie.Add("bur", 4)
 
+	seen := map[string]bool{}
 	for key, value := range trie.AllKeyValuesIter() {
+		seen[key] = true
 		switch key {
 		case "foo":
 			if value != 1 {
@@ -78,6 +81,12 @@ func TestTrieAll(t *testing.T) {
 			}
 		default:
 			t.Errorf("Unexpected key: %s", key)
+		}
+	}
+
+	for _, key := range []string{"foo", "bar", "baz", "bur"} {
+		if !seen[key] {
+			t.Errorf("AllKeyValuesIter() never yielded %q", key)
 		}
 	}
 }
@@ -591,6 +600,17 @@ func TestPrefixSearchAndIterConsistency(t *testing.T) {
 
 	for _, prefix := range prefixes {
 		t.Run(prefix, func(t *testing.T) {
+			// Ground truth computed independently of PrefixSearch/PrefixSearchIter,
+			// since PrefixSearch is implemented in terms of PrefixSearchIter and so
+			// comparing the two against each other can never catch a bug shared by
+			// both.
+			expected := make(map[string]int)
+			for key, value := range testData {
+				if strings.HasPrefix(key, prefix) {
+					expected[key] = value
+				}
+			}
+
 			// Get results from PrefixSearch
 			searchResults := trie.PrefixSearch(prefix)
 			searchSet := make(map[string]bool)
@@ -600,6 +620,23 @@ func TestPrefixSearchAndIterConsistency(t *testing.T) {
 
 			// Collect results from PrefixSearchIter
 			iterResults := maps.Collect(trie.PrefixSearchIter(prefix))
+
+			if len(searchResults) != len(expected) {
+				t.Errorf("PrefixSearch(%q) returned %d keys, want %d", prefix, len(searchResults), len(expected))
+			}
+			if len(iterResults) != len(expected) {
+				t.Errorf("PrefixSearchIter(%q) returned %d keys, want %d", prefix, len(iterResults), len(expected))
+			}
+			for key, value := range expected {
+				if !searchSet[key] {
+					t.Errorf("PrefixSearch(%q) is missing expected key %q", prefix, key)
+				}
+				if got, ok := iterResults[key]; !ok {
+					t.Errorf("PrefixSearchIter(%q) is missing expected key %q", prefix, key)
+				} else if got != value {
+					t.Errorf("PrefixSearchIter(%q)[%q] = %d, want %d", prefix, key, got, value)
+				}
+			}
 
 			// Check that all keys match
 			if len(searchResults) != len(iterResults) {

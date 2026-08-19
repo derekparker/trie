@@ -102,6 +102,9 @@ func TestFuzzySearchAfterRepeatedSplits(t *testing.T) {
 // The mask invariant must survive a realistic build, not just handmade cases.
 func TestMaskInvariantOnFixture(t *testing.T) {
 	trie := createTrieAndAddFromFile("fixtures/test.txt", 0)
+	if trie.size == 0 {
+		t.Fatal("trie is empty; Add did not build anything for the invariant checks to exercise")
+	}
 	checkMaskInvariant(t, trie.root, "")
 	checkCounts(t, trie)
 }
@@ -156,6 +159,58 @@ func TestRemovePrefixOfCompressedSegment(t *testing.T) {
 	checkCounts(t, trie)
 }
 
+// Remove of a key that is itself a stored terminal, but also a prefix of
+// another surviving key, must only mark that node non-terminal - the node
+// (and the subtree under it) has to stay in the tree.
+func TestRemoveTerminalWithChildren(t *testing.T) {
+	trie := New[int]()
+	trie.Add("foo", 1)
+	trie.Add("foobar", 2)
+
+	trie.Remove("foo")
+
+	if _, ok := trie.Find("foo"); ok {
+		t.Error("Remove(\"foo\") did not delete it")
+	}
+	if n, ok := trie.Find("foobar"); !ok {
+		t.Error("Remove(\"foo\") deleted \"foobar\", which is a distinct surviving key")
+	} else if n.Val() != 2 {
+		t.Errorf("Find(\"foobar\").Val() = %d, want 2", n.Val())
+	}
+	if trie.size != 1 {
+		t.Errorf("size = %d, want 1", trie.size)
+	}
+	checkCounts(t, trie)
+	checkMaskInvariant(t, trie.root, "")
+}
+
+// Removing a leaf must stop pruning ancestors as soon as it reaches one that
+// still holds another live child. Neither "car" nor "cart" is added directly,
+// so the intermediate "car" node is a non-terminal split node whose only job
+// is holding both "e" (from "care") and "t" (from "cart") - deleting it would
+// orphan "cart".
+func TestRemoveLeafStopsPruningAtLiveSibling(t *testing.T) {
+	trie := New[int]()
+	trie.Add("care", 1)
+	trie.Add("cart", 2)
+
+	trie.Remove("care")
+
+	if _, ok := trie.Find("care"); ok {
+		t.Error("Remove(\"care\") did not delete it")
+	}
+	if n, ok := trie.Find("cart"); !ok {
+		t.Error("Remove(\"care\") orphaned the sibling key \"cart\" by pruning their shared ancestor")
+	} else if n.Val() != 2 {
+		t.Errorf("Find(\"cart\").Val() = %d, want 2", n.Val())
+	}
+	if got := trie.Keys(); len(got) != 1 || got[0] != "cart" {
+		t.Errorf("Keys() = %v, want [\"cart\"]", got)
+	}
+	checkCounts(t, trie)
+	checkMaskInvariant(t, trie.root, "")
+}
+
 // Add incremented size before knowing whether the key was already present.
 func TestTrieAddDuplicateKey(t *testing.T) {
 	trie := New[int]()
@@ -192,6 +247,20 @@ func TestTrieAddDuplicatesAcrossTerminalKinds(t *testing.T) {
 		t.Errorf("size = %d, want %d", trie.size, len(keys))
 	}
 	checkCounts(t, trie)
+
+	// Verify the value each terminal kind stored on its own Add, before the
+	// re-add pass below overwrites every value via the exact-match path and
+	// hides a broken fresh-child or split-created terminal.
+	for i, key := range keys {
+		n, ok := trie.Find(key)
+		if !ok {
+			t.Errorf("Find(%q) = false, want true", key)
+			continue
+		}
+		if n.Val() != i {
+			t.Errorf("Find(%q).Val() = %d, want %d", key, n.Val(), i)
+		}
+	}
 
 	// Re-add every key; nothing should be counted twice.
 	for i, key := range keys {
@@ -373,10 +442,12 @@ func TestSegmentsReassembleIntoKeys(t *testing.T) {
 		}
 	}
 
+	seen := map[string]bool{}
 	var walk func(nd *node[int], prefix string)
 	walk = func(nd *node[int], prefix string) {
 		path := prefix + nd.segment
 		if nd.path != nil {
+			seen[path] = true
 			if *nd.path != path {
 				t.Errorf("node stores key %q but its path spells %q", *nd.path, path)
 			}
@@ -389,6 +460,12 @@ func TestSegmentsReassembleIntoKeys(t *testing.T) {
 		}
 	}
 	walk(trie.root, "")
+
+	for key := range added {
+		if !seen[key] {
+			t.Errorf("added key %q was never reached by walking the trie", key)
+		}
+	}
 
 	checkCounts(t, trie)
 	checkSegmentsAreValidUTF8(t, trie.root)
