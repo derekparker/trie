@@ -18,6 +18,7 @@ type node[T any] struct {
 	mask     uint64
 	parent   *node[T]
 	children map[rune]*node[T] // keyed by first rune of child's segment
+	metaMu   sync.RWMutex
 	meta     T
 	path     *string // pointer to full key for terminal nodes
 
@@ -116,7 +117,9 @@ func (t *Trie[T]) Add(key string, meta T) *node[T] {
 			}
 
 			// Key ends exactly at this node
+			nd.metaMu.Lock()
 			nd.meta = meta
+			nd.metaMu.Unlock()
 			if nd.path != nil {
 				// Duplicate key, already counted
 				return nd
@@ -365,8 +368,10 @@ func (n *node[T]) newChild(segment string, meta T, fullKey string) *node[T] {
 	return child
 }
 
-// Val returns the value of the node.
+// Val returns the value of the node. It is safe to call concurrently with Add.
 func (n *node[T]) Val() T {
+	n.metaMu.RLock()
+	defer n.metaMu.RUnlock()
 	return n.meta
 }
 
