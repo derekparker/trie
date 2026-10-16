@@ -211,7 +211,7 @@ func (t *Trie[T]) HasKeysWithPrefix(key string) bool {
 	defer t.mu.RUnlock()
 
 	nd := findNode(t.root, key, false)
-	return nd != nil
+	return t.size > 0 && nd != nil
 }
 
 // Remove removes a key from the trie, ensuring that
@@ -280,9 +280,8 @@ func (t *Trie[T]) Keys() []string {
 	return keys
 }
 
-// FuzzySearch performs a fuzzy search against the keys in the trie.
-// FuzzySearch performs a fuzzy search against the keys in the trie, returning all keys
-// with the given prefix. Results are returned sorted.
+// FuzzySearch returns keys containing pre's runes in order, not necessarily
+// adjacent. Results are sorted shortest first, with lexicographic ties.
 func (t *Trie[T]) FuzzySearch(pre string) []string {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
